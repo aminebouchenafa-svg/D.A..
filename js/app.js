@@ -16,6 +16,7 @@ import {
 } from './adaptation.js';
 import { dailyTargets, achievedFromLog } from './nutrition.js';
 import { searchGI, giCategory } from './glycemic.js';
+import { mediaForExercise } from './exercise-media.js';
 import { openHiitTimer } from './timer.js';
 
 const appEl = document.getElementById('app');
@@ -798,11 +799,17 @@ function renderProgramSheet(inst) {
         <div class="calsheet__col">
           <div class="calsheet__coltitle">🏋️ L'entraînement du jour</div>
           <ul class="calsheet__ex" id="exList">
-            ${items.map((it, i) => `
+            ${items.map((it, i) => {
+              const media = mediaForExercise(it);
+              return `
               <li class="exitem ${checks[i] ? 'is-checked' : ''}" data-i="${i}">
                 <span class="exitem__box">${checks[i] ? '✓' : ''}</span>
                 <span class="exitem__txt">${esc(it)}</span>
-              </li>`).join('')}
+                ${media ? `<button class="exitem__media" data-media="${i}" aria-label="Voir l'exercice">
+                  <img src="${media.file}" alt="${esc(media.name)}" loading="lazy"/>
+                </button>` : ''}
+              </li>`;
+            }).join('')}
           </ul>
         </div>
         <div class="calsheet__col calsheet__col--meals">
@@ -835,6 +842,28 @@ function renderProgramSheet(inst) {
     toggleExercise(inst.id, day, +li.dataset.i, items.length);
     render();
   });
+  // La miniature ouvre l'illustration (sans cocher l'exercice).
+  sheet.querySelectorAll('.exitem__media').forEach((btn) => btn.onclick = (e) => {
+    e.stopPropagation();
+    openExerciseMedia(mediaForExercise(items[+btn.dataset.media]));
+  });
+}
+
+// Popup plein écran : illustration anatomique d'un exercice.
+function openExerciseMedia(media) {
+  if (!media) return;
+  const overlay = h(`
+    <div class="modal exmodal">
+      <div class="modal__sheet exmodal__sheet">
+        <button class="iconbtn exmodal__close" aria-label="Fermer">✕</button>
+        <img class="exmodal__img" src="${media.file}" alt="${esc(media.name)}"/>
+        <div class="exmodal__name">${esc(media.name)}</div>
+        <div class="exmodal__muscle">🎯 ${esc(media.muscle)}</div>
+      </div>
+    </div>`);
+  document.body.appendChild(overlay);
+  overlay.querySelector('.exmodal__close').onclick = () => overlay.remove();
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
 }
 
 function getInst(id) { return (getState().myPrograms || []).find((p) => p.id === id) || { done: {} }; }
