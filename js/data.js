@@ -261,3 +261,14 @@ export const DUTY_TYPES = {
   standby:   { id: 'standby',   label: 'Standby',       icon: '⏱️', color: '#f5a623' },
   vacation:  { id: 'vacation',  label: 'Congé',         icon: '🌴', color: '#1fb86b' },
 };
+
+// Paliers de TEMPS DE SERVICE (pour les jours de vol/night stop).
+// Plus le service est long, plus la fatigue cardiaque est grande → la séance
+// s'assouplit (mobilité, circulation) pour soulager le cœur.
+//   reduce: réduction d'intensité appliquée ; soft: bascule en récup douce
+export const DUTY_LOADS = {
+  short:  { id: 'short',  label: '< 6 h',   reduce: 0.5, soft: false },
+  medium: { id: 'medium', label: '6–9 h',   reduce: 1.0, soft: false },
+  long:   { id: 'long',   label: '9–12 h',  reduce: 1.5, soft: true  },
+  xlong:  { id: 'xlong',  label: '> 12 h',  reduce: 2.0, soft: true  },
+};

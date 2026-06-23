@@ -6,7 +6,7 @@
 //   - Disponibilité d'une salle (sinon 100% sans matériel)
 // ============================================================================
 
-import { CYCLE_30, EXERCISES, PROGRAMS, MEAL_PLANS, ageBracket } from './data.js';
+import { CYCLE_30, EXERCISES, PROGRAMS, MEAL_PLANS, ageBracket, DUTY_LOADS } from './data.js';
 
 // --- Helpers date -----------------------------------------------------------
 
@@ -94,13 +94,22 @@ export function planDay(state, dateISO) {
 
   // --- 1) Adaptation au type de service ------------------------------------
   switch (duty) {
-    case 'flight':
-      // Journée de vol = position assise prolongée + fatigue. Séance courte,
-      // anti-posture cockpit. On évite le très haut volume.
+    case 'flight': {
+      // Journée de vol = position assise prolongée + fatigue. On module selon
+      // le TEMPS DE SERVICE : plus c'est long, plus on assouplit (soulage le cœur).
+      const load = DUTY_LOADS[roster.dutyLoad] || DUTY_LOADS.medium;
       format = 'short';
-      intensity = Math.max(1, intensity - 1);
-      notes.push('Jour de vol : séance courte ciblée mobilité + activation, pensée pour faire avant ou après le service.');
+      intensity = Math.max(1, intensity - load.reduce);
+      if (load.soft) {
+        // Service long : séance douce, mobilité + circulation, peu cardiogène.
+        focus = focus === 'rest' ? 'rest' : 'mobility';
+        format = 'recovery';
+        notes.push(`Service long (${load.label}) : séance assouplie, orientée mobilité et circulation pour soulager le cœur et récupérer.`);
+      } else {
+        notes.push(`Jour de vol (${load.label}) : séance courte mobilité + activation, à caser avant ou après le service.`);
+      }
       break;
+    }
     case 'nightstop':
       // En escale : on demande s'il y a une salle pour adapter.
       needsGymQuestion = roster.gym === undefined;

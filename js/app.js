@@ -3,7 +3,8 @@
 // ============================================================================
 
 import { APP } from './config.js';
-import { PROGRAMS, DUTY_TYPES } from './data.js';
+import { PROGRAMS, DUTY_TYPES, DUTY_LOADS } from './data.js';
+import { extractTextFromPDF, parseRoster } from './roster-import.js';
 import {
   getState, setState, resetState, setRoster, getLog, setLog,
   exportJSON, importJSON,
@@ -497,13 +498,37 @@ function renderRoster() {
       <p class="muted">Renseigne tes journées : la séance s’adapte automatiquement (vol, repos, night stop, fatigue, salle).</p>
     </div>`));
 
-  // Import PDF (à venir)
-  screen.appendChild(h(`
-    <div class="card import-soon">
-      <div class="card__title">📄 Import PDF du roster</div>
-      <p class="muted">Bientôt : dépose ton PDF compagnie et FLOW remplira ton planning automatiquement. Pour le MVP, saisis tes journées ci-dessous.</p>
-      <button class="btn btn--ghost" disabled>Importer un PDF (à venir)</button>
-    </div>`));
+  // Import PDF (réel)
+  const importCard = h(`
+    <div class="card">
+      <div class="card__title">📄 Importer mon roster (PDF)</div>
+      <p class="muted">Dépose le PDF de ta compagnie : FLOW lit les dates et les types de service, puis tu relis/corriges avant d’appliquer.</p>
+      <label class="btn btn--primary btn--lg" for="rosterFile">📤 Choisir un PDF</label>
+      <input type="file" id="rosterFile" accept="application/pdf" hidden />
+      <div id="rosterImportStatus" class="muted" style="margin-top:8px"></div>
+    </div>`);
+  const fileInput = importCard.querySelector('#rosterFile');
+  const statusEl = importCard.querySelector('#rosterImportStatus');
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    statusEl.textContent = '⏳ Lecture du PDF…';
+    try {
+      const text = await extractTextFromPDF(file);
+      const entries = parseRoster(text);
+      if (!entries.length) {
+        statusEl.innerHTML = '⚠️ Aucune date détectée automatiquement. Envoie-moi ce PDF en exemple pour que j’affine la lecture — en attendant, saisis tes journées ci-dessous.';
+        return;
+      }
+      statusEl.textContent = `✅ ${entries.length} jours détectés.`;
+      openRosterReview(entries);
+    } catch (err) {
+      statusEl.textContent = `❌ ${err.message || 'Lecture impossible'}. Vérifie ta connexion (le lecteur PDF se télécharge la 1re fois).`;
+    } finally {
+      fileInput.value = '';
+    }
+  });
+  screen.appendChild(importCard);
 
   // 14 prochains jours
   const list = h(`<div class="card"><div class="card__title">14 prochains jours</div><div id="rosterList"></div></div>`);
@@ -511,27 +536,90 @@ function renderRoster() {
   for (let i = 0; i < 14; i++) {
     const iso = addDays(todayISO(), i);
     const r = state.roster[iso] || {};
+    const showLoad = (r.duty === 'flight' || r.duty === 'nightstop');
     const row = h(`
       <div class="rosterrow">
-        <div class="rosterrow__date">${i === 0 ? 'Auj.' : cap(fmtDateShort(iso))}</div>
-        <select class="rosterrow__duty" data-iso="${iso}">
-          ${Object.values(DUTY_TYPES).map((d) =>
-            `<option value="${d.id}" ${ (r.duty || 'off') === d.id ? 'selected' : ''}>${d.icon} ${d.label}</option>`).join('')}
-        </select>
-        <select class="rosterrow__fatigue" data-iso="${iso}">
-          <option value="normal" ${ (r.fatigue||'normal')==='normal'?'selected':''}>🔋 Normale</option>
-          <option value="low" ${ r.fatigue==='low'?'selected':''}>⚡ En forme</option>
-          <option value="high" ${ r.fatigue==='high'?'selected':''}>😴 Fatigué</option>
-        </select>
+        <div class="rosterrow__top">
+          <div class="rosterrow__date">${i === 0 ? 'Auj.' : cap(fmtDateShort(iso))}</div>
+          <select class="rosterrow__duty" data-iso="${iso}">
+            ${Object.values(DUTY_TYPES).map((d) =>
+              `<option value="${d.id}" ${ (r.duty || 'off') === d.id ? 'selected' : ''}>${d.icon} ${d.label}</option>`).join('')}
+          </select>
+          <select class="rosterrow__fatigue" data-iso="${iso}">
+            <option value="normal" ${ (r.fatigue||'normal')==='normal'?'selected':''}>🔋 Normale</option>
+            <option value="low" ${ r.fatigue==='low'?'selected':''}>⚡ En forme</option>
+            <option value="high" ${ r.fatigue==='high'?'selected':''}>😴 Fatigué</option>
+          </select>
+        </div>
+        ${showLoad ? `
+        <label class="rosterrow__load">⏱ Temps de service
+          <select class="rosterrow__loadsel" data-iso="${iso}">
+            ${Object.values(DUTY_LOADS).map((l) =>
+              `<option value="${l.id}" ${ (r.dutyLoad || 'medium') === l.id ? 'selected' : ''}>${l.label}</option>`).join('')}
+          </select>
+        </label>` : ''}
       </div>`);
     listBody.appendChild(row);
   }
   list.querySelectorAll('.rosterrow__duty').forEach((sel) =>
-    sel.addEventListener('change', (e) => setRoster(e.target.dataset.iso, { duty: e.target.value })));
+    sel.addEventListener('change', (e) => { setRoster(e.target.dataset.iso, { duty: e.target.value }); render(); }));
   list.querySelectorAll('.rosterrow__fatigue').forEach((sel) =>
     sel.addEventListener('change', (e) => setRoster(e.target.dataset.iso, { fatigue: e.target.value })));
+  list.querySelectorAll('.rosterrow__loadsel').forEach((sel) =>
+    sel.addEventListener('change', (e) => setRoster(e.target.dataset.iso, { dutyLoad: e.target.value })));
   screen.appendChild(list);
   appEl.appendChild(screen);
+}
+
+// --- Écran de relecture du roster importé -----------------------------------
+function openRosterReview(entries) {
+  const overlay = h(`
+    <div class="modal">
+      <div class="modal__sheet">
+        <div class="modal__head">
+          <h2>📋 Relecture du roster</h2>
+          <button class="iconbtn" id="rvClose" aria-label="Fermer">✕</button>
+        </div>
+        <p class="muted">Vérifie chaque jour détecté. Corrige si besoin, puis applique. Les jours non sûrs sont marqués ⚠️.</p>
+        <div class="gi-list" id="rvList"></div>
+        <button class="btn btn--primary btn--lg" id="rvApply">Appliquer ${entries.length} jours au planning</button>
+      </div>
+    </div>`);
+  document.body.appendChild(overlay);
+  const listEl = overlay.querySelector('#rvList');
+  listEl.innerHTML = entries.map((en, i) => `
+    <div class="rv-row">
+      <div class="rv-date">${cap(fmtDateShort(en.iso))} ${en.confident ? '' : '⚠️'}</div>
+      <select class="rv-duty" data-i="${i}">
+        ${Object.values(DUTY_TYPES).map((d) =>
+          `<option value="${d.id}" ${en.duty === d.id ? 'selected' : ''}>${d.icon} ${d.label}</option>`).join('')}
+      </select>
+      <select class="rv-load" data-i="${i}" ${(en.duty === 'flight' || en.duty === 'nightstop') ? '' : 'hidden'}>
+        ${Object.values(DUTY_LOADS).map((l) =>
+          `<option value="${l.id}" ${(en.dutyLoad || 'medium') === l.id ? 'selected' : ''}>${l.label}</option>`).join('')}
+      </select>
+    </div>`).join('');
+
+  listEl.querySelectorAll('.rv-duty').forEach((sel) => sel.addEventListener('change', (e) => {
+    const i = +e.target.dataset.i;
+    entries[i].duty = e.target.value;
+    const loadSel = listEl.querySelector(`.rv-load[data-i="${i}"]`);
+    if (loadSel) loadSel.hidden = !(e.target.value === 'flight' || e.target.value === 'nightstop');
+  }));
+  listEl.querySelectorAll('.rv-load').forEach((sel) => sel.addEventListener('change', (e) => {
+    entries[+e.target.dataset.i].dutyLoad = e.target.value;
+  }));
+
+  overlay.querySelector('#rvClose').onclick = () => overlay.remove();
+  overlay.querySelector('#rvApply').onclick = () => {
+    entries.forEach((en) => {
+      const patch = { duty: en.duty };
+      if (en.duty === 'flight' || en.duty === 'nightstop') patch.dutyLoad = en.dutyLoad || 'medium';
+      setRoster(en.iso, patch);
+    });
+    overlay.remove();
+    render();
+  };
 }
 
 // ============================================================================
