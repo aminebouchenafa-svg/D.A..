@@ -4,7 +4,7 @@
 
 import { APP } from './config.js';
 import { PROGRAMS, DUTY_TYPES, DUTY_LOADS } from './data.js';
-import { extractTextFromPDF, importRoster, parseRoster } from './roster-import.js';
+import { importRoster } from './roster-import.js';
 import {
   getState, setState, resetState, setRoster, getLog, setLog,
   exportJSON, importJSON,
