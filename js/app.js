@@ -3,8 +3,9 @@
 // ============================================================================
 
 import { APP } from './config.js';
-import { PROGRAMS, DUTY_TYPES, DUTY_LOADS } from './data.js';
+import { PROGRAMS, DUTY_TYPES, DUTY_LOADS, MEAL_PLANS } from './data.js';
 import { importRoster } from './roster-import.js';
+import { PROGRAMS_LIB, getProgram, programDay } from './programs.js';
 import {
   getState, setState, resetState, setRoster, getLog, setLog,
   exportJSON, importJSON,
@@ -22,6 +23,8 @@ const tabbar = document.getElementById('tabbar');
 
 let currentView = 'today';
 let selectedDate = todayISO();
+let openInstanceId = null;   // mode Défis : instance ouverte (null = bibliothèque)
+let openProgramDay = 1;      // jour affiché dans la feuille de calendrier
 
 // --- Utilitaires DOM --------------------------------------------------------
 
@@ -60,6 +63,7 @@ function render() {
     today: renderToday,
     calendar: renderCalendar,
     roster: renderRoster,
+    programs: renderPrograms,
     progress: renderProgress,
     settings: renderSettings,
   };
@@ -635,6 +639,196 @@ function openRosterReview(entries) {
     overlay.remove();
     render();
   };
+}
+
+// ============================================================================
+// MODE DÉFIS — bibliothèque de programmes indépendants + feuille de calendrier
+// ============================================================================
+
+function renderPrograms() {
+  const state = getState();
+  if (openInstanceId) {
+    const inst = (state.myPrograms || []).find((p) => p.id === openInstanceId);
+    if (inst) return renderProgramSheet(inst);
+    openInstanceId = null;
+  }
+  appEl.innerHTML = '';
+  const screen = h(`<div class="screen"></div>`);
+  screen.appendChild(h(`
+    <div class="screen__head">
+      <h1>🏆 Défis & Programmes</h1>
+      <p class="muted">Des programmes indépendants (7, 15 ou 30 jours). Choisis-en un, donne-lui un nom, suis-le jour par jour.</p>
+    </div>`));
+
+  // Mes programmes en cours
+  const mine = state.myPrograms || [];
+  if (mine.length) {
+    const card = h(`<div class="card"><div class="card__title">Mes programmes</div><div id="myProgs"></div></div>`);
+    const body = card.querySelector('#myProgs');
+    mine.forEach((inst) => {
+      const prog = getProgram(inst.programId);
+      if (!prog) return;
+      const doneCount = countDoneDays(prog, inst);
+      const pct = Math.round((doneCount / prog.days) * 100);
+      const row = h(`
+        <div class="prog-row" data-id="${inst.id}">
+          <div class="prog-row__emoji">${prog.emoji}</div>
+          <div class="prog-row__body">
+            <div class="prog-row__name">${esc(inst.name)}</div>
+            <div class="progressbar"><div class="progressbar__fill" style="width:${pct}%"></div></div>
+            <div class="muted">${doneCount}/${prog.days} jours · ${pct}%</div>
+          </div>
+          <button class="iconbtn" data-del="${inst.id}" aria-label="Supprimer">🗑️</button>
+        </div>`);
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('[data-del]')) {
+          if (confirm('Supprimer ce programme et sa progression ?')) {
+            setState((s) => { s.myPrograms = s.myPrograms.filter((p) => p.id !== inst.id); });
+            render();
+          }
+          return;
+        }
+        openInstanceId = inst.id;
+        openProgramDay = firstUndoneDay(prog, inst);
+        render();
+      });
+      body.appendChild(row);
+    });
+    screen.appendChild(card);
+  }
+
+  // Bibliothèque
+  const lib = h(`<div class="card"><div class="card__title">Bibliothèque</div><div id="lib"></div></div>`);
+  const libBody = lib.querySelector('#lib');
+  PROGRAMS_LIB.forEach((prog) => {
+    const c = h(`
+      <div class="lib-card">
+        <div class="lib-card__head"><span class="lib-card__emoji">${prog.emoji}</span>
+          <span class="lib-card__name">${esc(prog.name)}</span>
+          <span class="lib-card__days">${prog.days} j</span></div>
+        <div class="muted">${esc(prog.desc)}</div>
+        <button class="btn btn--primary" data-start="${prog.id}">Démarrer</button>
+      </div>`);
+    c.querySelector('[data-start]').onclick = () => startProgram(prog);
+    libBody.appendChild(c);
+  });
+  screen.appendChild(lib);
+  appEl.appendChild(screen);
+}
+
+function startProgram(prog) {
+  const name = (prompt('Nom de ton programme :', prog.name) || '').trim() || prog.name;
+  const inst = { id: 'p' + Date.now(), programId: prog.id, name, startISO: todayISO(), rounds: {} };
+  setState((s) => { s.myPrograms = [...(s.myPrograms || []), inst]; });
+  openInstanceId = inst.id;
+  openProgramDay = 1;
+  render();
+}
+
+// Un jour est "fait" si tous ses tours sont cochés.
+function isDayDone(prog, day, inst) {
+  const need = programDay(prog, day).rounds || 1;
+  return ((inst.rounds || {})[day] || 0) >= need;
+}
+function countDoneDays(prog, inst) {
+  let n = 0;
+  for (let d = 1; d <= prog.days; d++) if (isDayDone(prog, d, inst)) n++;
+  return n;
+}
+function firstUndoneDay(prog, inst) {
+  for (let d = 1; d <= prog.days; d++) if (!isDayDone(prog, d, inst)) return d;
+  return 1;
+}
+
+// Feuille de calendrier d'un jour : exercices + tours + repas.
+function renderProgramSheet(inst) {
+  const state = getState();
+  const prog = getProgram(inst.programId);
+  const day = Math.max(1, Math.min(prog.days, openProgramDay));
+  const content = programDay(prog, day);
+  const roundsNeeded = content.rounds || 1;
+  const roundsDone = (inst.rounds || {})[day] || 0;
+  const meals = MEAL_PLANS[prog.dietKey] || MEAL_PLANS.fat_loss;
+
+  appEl.innerHTML = '';
+  const screen = h(`<div class="screen"></div>`);
+
+  // En-tête + navigation
+  screen.appendChild(h(`
+    <div class="sheet-top">
+      <button class="btn btn--ghost" id="backLib">‹ Programmes</button>
+      <div class="sheet-top__name">${prog.emoji} ${esc(inst.name)}</div>
+    </div>`));
+
+  // Feuille de calendrier
+  const sheet = h(`
+    <div class="calsheet">
+      <div class="calsheet__rings"><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="calsheet__head">
+        <button class="iconbtn" id="prevD">‹</button>
+        <div class="calsheet__daynum">JOUR ${day} <span>/ ${prog.days}</span></div>
+        <button class="iconbtn" id="nextD">›</button>
+      </div>
+      <div class="calsheet__sub">${esc(content.subtitle || '')}</div>
+      <div class="calsheet__cols">
+        <div class="calsheet__col">
+          <div class="calsheet__coltitle">🏋️ L'entraînement du jour</div>
+          <ul class="calsheet__ex">
+            ${content.items.map((it) => `<li>${esc(it)}</li>`).join('')}
+          </ul>
+          ${roundsNeeded > 1 ? `<div class="rounds" id="rounds">
+            <div class="rounds__label">Vos performances · ${roundsNeeded} tours</div>
+            <div class="rounds__boxes">
+              ${Array.from({ length: roundsNeeded }, (_, i) =>
+                `<button class="round ${i < roundsDone ? 'is-on' : ''}" data-r="${i + 1}">Tour ${i + 1}</button>`).join('')}
+            </div>
+          </div>` : ''}
+        </div>
+        <div class="calsheet__col calsheet__col--meals">
+          <div class="calsheet__coltitle">🍽️ Les repas du jour</div>
+          ${['breakfast', 'lunch', 'dinner', 'snack'].map((k) => meals[k] ? `
+            <div class="calmeal"><b>${esc(meals[k].title)}</b><div class="muted">${meals[k].items.map(esc).join(' · ')}</div></div>` : '').join('')}
+        </div>
+      </div>
+      <button class="btn ${isDayDone(prog, day, inst) ? 'btn--done' : 'btn--primary'} btn--lg" id="markDay">
+        ${isDayDone(prog, day, inst) ? '✅ Jour terminé' : 'Marquer le jour comme fait'}
+      </button>
+    </div>`);
+  screen.appendChild(sheet);
+
+  // Grille des jours
+  const grid = h(`<div class="card"><div class="card__title">Progression</div><div class="pgrid" id="pgrid"></div></div>`);
+  const pg = grid.querySelector('#pgrid');
+  for (let d = 1; d <= prog.days; d++) {
+    const cell = h(`<button class="pcell ${isDayDone(prog, d, inst) ? 'is-done' : ''} ${d === day ? 'is-cur' : ''}">${d}</button>`);
+    cell.onclick = () => { openProgramDay = d; render(); };
+    pg.appendChild(cell);
+  }
+  screen.appendChild(grid);
+  appEl.appendChild(screen);
+
+  sheet.querySelector('#backLib').onclick = () => { openInstanceId = null; render(); };
+  sheet.querySelector('#prevD').onclick = () => { openProgramDay = Math.max(1, day - 1); render(); };
+  sheet.querySelector('#nextD').onclick = () => { openProgramDay = Math.min(prog.days, day + 1); render(); };
+  sheet.querySelector('#markDay').onclick = () => {
+    setProgramRounds(inst.id, day, isDayDone(prog, day, inst) ? 0 : roundsNeeded);
+    render();
+  };
+  sheet.querySelectorAll('.round').forEach((b) => b.onclick = () => {
+    const r = +b.dataset.r;
+    const cur = (getInst(inst.id).rounds || {})[day] || 0;
+    setProgramRounds(inst.id, day, cur === r ? r - 1 : r); // tap = atteindre ce tour, re-tap = défaire
+    render();
+  });
+}
+
+function getInst(id) { return (getState().myPrograms || []).find((p) => p.id === id) || { rounds: {} }; }
+function setProgramRounds(id, day, count) {
+  setState((s) => {
+    const inst = s.myPrograms.find((p) => p.id === id);
+    if (!inst) return;
+    inst.rounds = { ...(inst.rounds || {}), [day]: count };
+  });
 }
 
 // ============================================================================

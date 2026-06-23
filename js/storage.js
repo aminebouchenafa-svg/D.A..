@@ -18,7 +18,8 @@ const DEFAULT_STATE = {
   startDateISO: null,   // début du cycle 30 jours
   medicalDateISO: null, // date de la visite médicale (VM) — prépa 1 mois avant
   cycleCount: 0,        // nombre de cycles renouvelés
-  roster: {},           // { 'YYYY-MM-DD': { duty, fatigue, gym } }
+  roster: {},           // { 'YYYY-MM-DD': { duty, fatigue, gym, dutyLoad } }
+  myPrograms: [],       // mode indépendant : [{ id, programId, name, startISO, rounds:{day:count} }]
   logs: {},             // { 'YYYY-MM-DD': { workoutDone, meals:{breakfast,lunch,dinner,snack}, weightKg } }
 };
 
