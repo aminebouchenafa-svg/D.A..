@@ -6,7 +6,7 @@
 //   - Disponibilité d'une salle (sinon 100% sans matériel)
 // ============================================================================
 
-import { CYCLE_30, EXERCISES, PROGRAMS, MEAL_PLANS } from './data.js';
+import { CYCLE_30, EXERCISES, PROGRAMS, MEAL_PLANS, ageBracket } from './data.js';
 
 // --- Helpers date -----------------------------------------------------------
 
@@ -83,6 +83,9 @@ export function planDay(state, dateISO) {
   const fatigue = roster.fatigue || 'normal';   // 'low' | 'normal' | 'high'
   const gym = !!roster.gym;
 
+  // Calibrage selon l'âge du pilote (volume + plafond d'intensité).
+  const bracket = ageBracket(state.profile && state.profile.age);
+
   const notes = [];
   let focus = cycleEntry.focus;
   let intensity = cycleEntry.intensity;
@@ -126,6 +129,14 @@ export function planDay(state, dateISO) {
     notes.push('Bonne forme : tu peux pousser un peu l’intensité aujourd’hui.');
   }
 
+  // --- 2b) Calibrage âge : on plafonne l'intensité selon la tranche --------
+  if (focus !== 'rest' && intensity > bracket.intensityCap) {
+    intensity = bracket.intensityCap;
+  }
+  if (focus !== 'rest') {
+    notes.push(`Programme calibré pour ta tranche d’âge (${bracket.label}) : volume et intensité ajustés.`);
+  }
+
   // --- 3) Construction de la séance ----------------------------------------
   let session;
   if (focus === 'rest') {
@@ -140,11 +151,11 @@ export function planDay(state, dateISO) {
     if (!mainPool.length) mainPool = poolFor('full', gym).filter((e) => !usedIds.has(e.id));
     const main = pick(mainPool, nExercises);
 
-    // Scale des reps/sec selon l'intensité.
+    // Scale des reps/sec selon l'intensité ET le volume lié à l'âge.
     const scale = (work) => {
-      const f = 0.7 + (intensity / 5) * 0.6; // 0.7..1.3
+      const f = (0.7 + (intensity / 5) * 0.6) * bracket.volume; // intensité × volume âge
       const out = { ...work };
-      if (out.reps) out.reps = Math.max(6, Math.round(out.reps * f));
+      if (out.reps) out.reps = Math.max(5, Math.round(out.reps * f));
       if (out.sec) out.sec = Math.max(15, Math.round(out.sec * f / 5) * 5);
       if (out.sets && format === 'recovery') out.sets = Math.max(1, out.sets - 1);
       return out;

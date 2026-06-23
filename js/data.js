@@ -233,6 +233,26 @@ export const MEAL_PLANS = {
   },
 };
 
+// ----------------------------------------------------------------------------
+// TRANCHES D'ÂGE — calibrage du volume/intensité selon l'âge.
+// Dérivé des plans "Workout by age" fournis (18-35 / 35-45 / 45-55 / 55+ …) :
+// le volume (reps/durées) et le plafond d'intensité diminuent avec l'âge.
+//   volume:       multiplicateur appliqué aux reps/secondes
+//   intensityCap: intensité maximale autorisée (1..5)
+// ----------------------------------------------------------------------------
+export const AGE_BRACKETS = [
+  { min: 0,  max: 35, label: '18–35', volume: 1.15, intensityCap: 5.0 },
+  { min: 36, max: 45, label: '35–45', volume: 1.00, intensityCap: 4.5 },
+  { min: 46, max: 55, label: '45–55', volume: 0.85, intensityCap: 4.0 },
+  { min: 56, max: 65, label: '55–65', volume: 0.72, intensityCap: 3.5 },
+  { min: 66, max: 200, label: '65+',  volume: 0.62, intensityCap: 3.0 },
+];
+
+export function ageBracket(age) {
+  const a = Number(age) || 35;
+  return AGE_BRACKETS.find((b) => a >= b.min && a <= b.max) || AGE_BRACKETS[1];
+}
+
 // Types de service du roster (saisie manuelle MVP).
 export const DUTY_TYPES = {
   off:       { id: 'off',       label: 'Repos / Off',   icon: '🏠', color: '#1fb86b' },
