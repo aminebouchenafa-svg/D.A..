@@ -62,7 +62,7 @@ function poolFor(focus, gym) {
     core:     (e) => e.type === 'core',
     cardio:   (e) => e.type === 'cardio',
     mobility: (e) => e.type === 'mobility',
-    full:     () => true,
+    full:     (e) => e.type !== 'mobility', // circuit = renfo/cardio, pas d'étirements
   };
   const focusFn = byFocus[focus] || byFocus.full;
   return EXERCISES.filter((e) => equipOk(e) && focusFn(e));
@@ -134,9 +134,11 @@ export function planDay(state, dateISO) {
   } else {
     const nExercises = format === 'short' ? 4 : format === 'recovery' ? 3 : 6;
     const warmupPool = EXERCISES.filter((e) => e.type === 'mobility' && (gym || e.equipment === 'none'));
-    const mainPool = poolFor(focus, gym);
     const warmup = pick(warmupPool, 2);
-    const main = pick(mainPool.length ? mainPool : poolFor('full', gym), nExercises);
+    const usedIds = new Set(warmup.map((e) => e.id));
+    let mainPool = poolFor(focus, gym).filter((e) => !usedIds.has(e.id));
+    if (!mainPool.length) mainPool = poolFor('full', gym).filter((e) => !usedIds.has(e.id));
+    const main = pick(mainPool, nExercises);
 
     // Scale des reps/sec selon l'intensité.
     const scale = (work) => {
