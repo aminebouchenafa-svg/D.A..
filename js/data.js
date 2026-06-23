@@ -234,6 +234,137 @@ export const MEAL_PLANS = {
 };
 
 // ----------------------------------------------------------------------------
+// VARIANTES DE REPAS — banque de recettes pour faire varier les repas jour
+// par jour (rotation via mealsForDay). Chaque slot a plusieurs options ; le
+// jour J pioche l'option (J-1) % nombre d'options. À IG bas privilégié.
+// ----------------------------------------------------------------------------
+export const MEAL_VARIANTS = {
+  fat_loss: {
+    breakfast: [
+      { title: 'Skyr & fruits rouges', items: ['200 g skyr 0 %', '100 g fruits rouges', '15 g amandes', 'Café/thé sans sucre'] },
+      { title: 'Œufs brouillés & avoine', items: ['2–3 œufs brouillés', '40 g flocons d’avoine', '½ pomme', 'Thé vert'] },
+      { title: 'Omelette aux légumes', items: ['Omelette 3 œufs + épinards/tomates', '1 tranche pain complet', 'Café sans sucre'] },
+      { title: 'Bowl fromage blanc', items: ['250 g fromage blanc 0 %', '1 c. graines de chia', 'Quelques myrtilles', 'Cannelle'] },
+      { title: 'Pancakes protéinés', items: ['2 pancakes (banane + œuf + avoine)', '1 c. beurre de cacahuète', 'Thé'] },
+    ],
+    lunch: [
+      { title: 'Poulet grillé & quinoa', items: ['150 g poulet grillé', '½ tasse quinoa', 'Brocoli + courgettes', 'Filet d’huile d’olive'] },
+      { title: 'Saumon & légumes', items: ['150 g saumon au four', 'Haricots verts à volonté', '½ patate douce', 'Citron'] },
+      { title: 'Salade de thon', items: ['1 boîte thon naturel', 'Salade + concombre + maïs', 'Pois chiches (¼)', 'Vinaigrette légère'] },
+      { title: 'Wrap dinde', items: ['Galette complète + dinde', 'Crudités + houmous léger', 'Yaourt nature'] },
+      { title: 'Bœuf maigre & riz', items: ['150 g bœuf 5 %', '½ tasse riz basmati', 'Poêlée de légumes', 'Sauce soja légère'] },
+    ],
+    dinner: [
+      { title: 'Poisson blanc & salade', items: ['150 g cabillaud vapeur', 'Grande salade verte', 'Filet d’huile d’olive', 'Tisane'] },
+      { title: 'Soupe & œufs', items: ['Soupe de légumes maison', '2 œufs durs', 'Tranche pain complet (option)'] },
+      { title: 'Poulet & ratatouille', items: ['130 g poulet', 'Ratatouille maison', 'Pas de féculents', 'Tisane'] },
+      { title: 'Tofu sauté', items: ['150 g tofu poêlé', 'Légumes wok', 'Graines de sésame', 'Bouillon'] },
+      { title: 'Crevettes & courgettes', items: ['Crevettes sautées ail', 'Spaghettis de courgette', 'Citron + persil'] },
+    ],
+    snack: [
+      { title: 'Amandes & thé', items: ['Poignée d’amandes (25 g)', 'Thé vert', 'Eau +++'] },
+      { title: 'Shaker protéiné', items: ['Whey + eau', '1 fruit'] },
+      { title: 'Skyr & cannelle', items: ['150 g skyr', 'Cannelle', 'Quelques noix'] },
+      { title: 'Bâtonnets & houmous', items: ['Carotte/concombre', '1 c. houmous'] },
+      { title: 'Pomme & beurre de cacahuète', items: ['1 pomme', '1 c. beurre de cacahuète'] },
+    ],
+  },
+  cut: {
+    breakfast: [
+      { title: 'Blancs d’œufs & skyr', items: ['4 blancs + 1 œuf', '150 g skyr 0 %', 'Café sans sucre'] },
+      { title: 'Omelette épinards', items: ['Omelette 3 œufs + épinards', 'Thé vert'] },
+      { title: 'Fromage blanc & chia', items: ['200 g fromage blanc 0 %', 'Graines de chia', 'Quelques myrtilles'] },
+      { title: 'Avoine sèche & whey', items: ['30 g avoine', '1 dose whey', 'Café'] },
+    ],
+    lunch: [
+      { title: 'Poulet & légumes verts', items: ['150 g poulet', 'Brocoli/haricots à volonté', 'Riz IG bas (¼)'] },
+      { title: 'Cabillaud & courgettes', items: ['160 g cabillaud', 'Courgettes poêlées', 'Citron'] },
+      { title: 'Steak & salade', items: ['150 g bœuf 5 %', 'Grande salade', 'Lentilles (¼)'] },
+      { title: 'Thon & haricots verts', items: ['Thon naturel', 'Haricots verts', 'Œuf dur'] },
+    ],
+    dinner: [
+      { title: 'Poisson & légumes vapeur', items: ['150 g poisson blanc', 'Légumes vapeur', 'Pas de féculents'] },
+      { title: 'Dinde & ratatouille', items: ['140 g dinde', 'Ratatouille', 'Tisane'] },
+      { title: 'Tofu & wok de légumes', items: ['150 g tofu', 'Légumes wok', 'Sauce soja légère'] },
+      { title: 'Omelette & salade', items: ['Omelette 3 œufs', 'Salade verte', 'Tisane'] },
+    ],
+    snack: [
+      { title: 'Whey & amandes', items: ['1 dose whey', '10 amandes', 'Eau +++'] },
+      { title: 'Skyr nature', items: ['150 g skyr 0 %', 'Cannelle'] },
+      { title: 'Œuf dur', items: ['2 œufs durs', 'Eau'] },
+    ],
+  },
+  tone: {
+    breakfast: [
+      { title: 'Œufs & avoine', items: ['2 œufs', '40 g avoine', 'Fruits rouges', 'Café/thé'] },
+      { title: 'Bowl skyr & granola', items: ['200 g skyr', 'Granola maison (peu sucré)', 'Banane'] },
+      { title: 'Toast avocat & œuf', items: ['1 tranche pain complet', '¼ avocat', '1 œuf poché'] },
+      { title: 'Smoothie protéiné', items: ['Lait/boisson végétale', 'Whey + flocons + fruits rouges'] },
+    ],
+    lunch: [
+      { title: 'Poulet & patate douce', items: ['150 g poulet', '½ patate douce', 'Légumes verts'] },
+      { title: 'Saumon & riz complet', items: ['150 g saumon', 'Riz complet', 'Brocoli'] },
+      { title: 'Buddha bowl', items: ['Quinoa + pois chiches', 'Crudités + avocat', 'Sauce yaourt'] },
+      { title: 'Wrap poulet', items: ['Galette complète + poulet', 'Crudités', 'Yaourt'] },
+    ],
+    dinner: [
+      { title: 'Protéine & légumes', items: ['Poisson/volaille', 'Légumes rôtis', 'Huile d’olive'] },
+      { title: 'Curry de pois chiches', items: ['Pois chiches + lait coco léger', 'Épinards', 'Riz (½)'] },
+      { title: 'Omelette garnie', items: ['Omelette 3 œufs', 'Champignons + fromage', 'Salade'] },
+      { title: 'Poêlée tofu/légumes', items: ['Tofu', 'Légumes', 'Graines'] },
+    ],
+    snack: [
+      { title: 'Skyr & fruit', items: ['Skyr', '1 fruit', 'Oléagineux'] },
+      { title: 'Pomme & amandes', items: ['1 pomme', '20 g amandes'] },
+      { title: 'Pain complet & fromage frais', items: ['1 tranche', 'Fromage frais', 'Concombre'] },
+    ],
+  },
+  maintain: {
+    breakfast: [
+      { title: 'Petit-déj équilibré', items: ['Œufs ou yaourt', 'Pain complet', 'Fruit'] },
+      { title: 'Porridge', items: ['Flocons d’avoine + lait', 'Banane', 'Miel (un peu)'] },
+      { title: 'Tartines & fromage blanc', items: ['Pain complet', 'Fromage blanc', 'Confiture légère'] },
+    ],
+    lunch: [
+      { title: 'Assiette équilibrée', items: ['Protéine', 'Féculents complets', 'Légumes'] },
+      { title: 'Pâtes au poulet', items: ['Pâtes complètes', 'Poulet', 'Sauce tomate + légumes'] },
+      { title: 'Poisson & riz', items: ['Poisson', 'Riz', 'Légumes + huile d’olive'] },
+    ],
+    dinner: [
+      { title: 'Repas léger', items: ['Soupe ou salade composée', 'Protéine', 'Pain complet (option)'] },
+      { title: 'Omelette & salade', items: ['Omelette', 'Salade', 'Fromage'] },
+      { title: 'Poêlée complète', items: ['Légumes + féculents', 'Protéine', 'Huile d’olive'] },
+    ],
+    snack: [
+      { title: 'Fruit & oléagineux', items: ['1 fruit', 'Poignée de noix'] },
+      { title: 'Yaourt & miel', items: ['Yaourt', 'Miel', 'Granola'] },
+    ],
+  },
+  mass: {
+    breakfast: [
+      { title: 'Repas 1 — Avoine & whey', items: ['120 g avoine + lait', '30 g whey', '1 banane'] },
+      { title: 'Repas 1 — Œufs & pain', items: ['4 œufs', '2 tranches pain complet', 'Avocat', 'Fruit'] },
+      { title: 'Repas 1 — Bowl complet', items: ['Skyr 300 g', 'Granola 60 g', 'Beurre de cacahuète', 'Banane'] },
+    ],
+    lunch: [
+      { title: 'Repas 3 — Riz & viande', items: ['200 g riz cuit', '150 g viande/poisson', 'Salade + ¼ avocat'] },
+      { title: 'Repas 3 — Pâtes & poulet', items: ['200 g pâtes', '150 g poulet', 'Sauce tomate + huile d’olive'] },
+      { title: 'Repas 3 — Patate & bœuf', items: ['250 g patate douce', '150 g bœuf', 'Légumes'] },
+    ],
+    dinner: [
+      { title: 'Repas 5 — Saumon & riz', items: ['Riz complet', '150 g saumon', 'Légumes'] },
+      { title: 'Repas 5 — Œufs & patate', items: ['Omelette 4 œufs', 'Patate douce', 'Salade'] },
+      { title: 'Repas 5 — Poulet & pâtes', items: ['Pâtes complètes', '150 g poulet', 'Légumes + huile d’olive'] },
+    ],
+    snack: [
+      { title: 'Collation — Shaker & banane', items: ['Whey + lait', '1 banane', '40 g avoine'] },
+      { title: 'Collation — Oléagineux', items: ['30 g amandes/noix', 'Fruits secs', 'Fromage blanc'] },
+      { title: 'Collation — Beurre de cacahuète', items: ['2 tranches pain complet', 'Beurre de cacahuète', 'Miel'] },
+    ],
+  },
+};
+
+// ----------------------------------------------------------------------------
 // TRANCHES D'ÂGE — calibrage du volume/intensité selon l'âge.
 // Dérivé des plans "Workout by age" fournis (18-35 / 35-45 / 45-55 / 55+ …) :
 // le volume (reps/durées) et le plafond d'intensité diminuent avec l'âge.

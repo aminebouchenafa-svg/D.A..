@@ -3,7 +3,7 @@
 // ============================================================================
 
 import { APP } from './config.js';
-import { PROGRAMS, DUTY_TYPES, DUTY_LOADS, MEAL_PLANS } from './data.js';
+import { PROGRAMS, DUTY_TYPES, DUTY_LOADS, MEAL_PLANS, MEAL_VARIANTS } from './data.js';
 import { importRoster } from './roster-import.js';
 import { PROGRAMS_LIB, getProgram, programDay } from './programs.js';
 import {
@@ -718,17 +718,20 @@ function renderPrograms() {
 
 function startProgram(prog) {
   const name = (prompt('Nom de ton programme :', prog.name) || '').trim() || prog.name;
-  const inst = { id: 'p' + Date.now(), programId: prog.id, name, startISO: todayISO(), rounds: {} };
+  const inst = { id: 'p' + Date.now(), programId: prog.id, name, startISO: todayISO(), done: {} };
   setState((s) => { s.myPrograms = [...(s.myPrograms || []), inst]; });
   openInstanceId = inst.id;
   openProgramDay = 1;
   render();
 }
 
-// Un jour est "fait" si tous ses tours sont cochés.
+// Un jour est "fait" si tous ses exercices sont cochés.
+function dayExercises(prog, day) { return programDay(prog, day).items || []; }
 function isDayDone(prog, day, inst) {
-  const need = programDay(prog, day).rounds || 1;
-  return ((inst.rounds || {})[day] || 0) >= need;
+  const items = dayExercises(prog, day);
+  if (!items.length) return false;
+  const arr = (inst.done || {})[day] || [];
+  return items.every((_, i) => arr[i]);
 }
 function countDoneDays(prog, inst) {
   let n = 0;
@@ -740,30 +743,51 @@ function firstUndoneDay(prog, inst) {
   return 1;
 }
 
-// Feuille de calendrier d'un jour : exercices + tours + repas.
+// Repas du jour : varie jour par jour en piochant dans la banque de recettes.
+function mealsForDay(prog, day) {
+  const key = prog.dietKey;
+  const base = MEAL_PLANS[key] || MEAL_PLANS.fat_loss;
+  const variants = MEAL_VARIANTS[key];
+  if (!variants) return base;
+  const pick = (slot) => {
+    const opts = variants[slot];
+    if (!opts || !opts.length) return base[slot];
+    return opts[(day - 1) % opts.length];
+  };
+  return {
+    breakfast: pick('breakfast'),
+    lunch: pick('lunch'),
+    dinner: pick('dinner'),
+    snack: pick('snack'),
+    tips: base.tips,
+  };
+}
+
+// Feuille de calendrier d'un jour : exercices cochables + repas. Thème néon sombre.
 function renderProgramSheet(inst) {
-  const state = getState();
   const prog = getProgram(inst.programId);
   const day = Math.max(1, Math.min(prog.days, openProgramDay));
   const content = programDay(prog, day);
-  const roundsNeeded = content.rounds || 1;
-  const roundsDone = (inst.rounds || {})[day] || 0;
-  const meals = MEAL_PLANS[prog.dietKey] || MEAL_PLANS.fat_loss;
+  const items = content.items || [];
+  const checks = (inst.done || {})[day] || [];
+  const meals = mealsForDay(prog, day);
+  const allDone = isDayDone(prog, day, inst);
 
   appEl.innerHTML = '';
-  const screen = h(`<div class="screen"></div>`);
+  const screen = h(`<div class="screen screen--neon"></div>`);
 
   // En-tête + navigation
-  screen.appendChild(h(`
+  const top = h(`
     <div class="sheet-top">
       <button class="btn btn--ghost" id="backLib">‹ Programmes</button>
       <div class="sheet-top__name">${prog.emoji} ${esc(inst.name)}</div>
-    </div>`));
+    </div>`);
+  top.querySelector('#backLib').onclick = () => { openInstanceId = null; render(); };
+  screen.appendChild(top);
 
-  // Feuille de calendrier
+  // Feuille de calendrier néon
   const sheet = h(`
-    <div class="calsheet">
-      <div class="calsheet__rings"><span></span><span></span><span></span><span></span><span></span></div>
+    <div class="calsheet calsheet--neon">
       <div class="calsheet__head">
         <button class="iconbtn" id="prevD">‹</button>
         <div class="calsheet__daynum">JOUR ${day} <span>/ ${prog.days}</span></div>
@@ -773,16 +797,13 @@ function renderProgramSheet(inst) {
       <div class="calsheet__cols">
         <div class="calsheet__col">
           <div class="calsheet__coltitle">🏋️ L'entraînement du jour</div>
-          <ul class="calsheet__ex">
-            ${content.items.map((it) => `<li>${esc(it)}</li>`).join('')}
+          <ul class="calsheet__ex" id="exList">
+            ${items.map((it, i) => `
+              <li class="exitem ${checks[i] ? 'is-checked' : ''}" data-i="${i}">
+                <span class="exitem__box">${checks[i] ? '✓' : ''}</span>
+                <span class="exitem__txt">${esc(it)}</span>
+              </li>`).join('')}
           </ul>
-          ${roundsNeeded > 1 ? `<div class="rounds" id="rounds">
-            <div class="rounds__label">Vos performances · ${roundsNeeded} tours</div>
-            <div class="rounds__boxes">
-              ${Array.from({ length: roundsNeeded }, (_, i) =>
-                `<button class="round ${i < roundsDone ? 'is-on' : ''}" data-r="${i + 1}">Tour ${i + 1}</button>`).join('')}
-            </div>
-          </div>` : ''}
         </div>
         <div class="calsheet__col calsheet__col--meals">
           <div class="calsheet__coltitle">🍽️ Les repas du jour</div>
@@ -790,14 +811,14 @@ function renderProgramSheet(inst) {
             <div class="calmeal"><b>${esc(meals[k].title)}</b><div class="muted">${meals[k].items.map(esc).join(' · ')}</div></div>` : '').join('')}
         </div>
       </div>
-      <button class="btn ${isDayDone(prog, day, inst) ? 'btn--done' : 'btn--primary'} btn--lg" id="markDay">
-        ${isDayDone(prog, day, inst) ? '✅ Jour terminé' : 'Marquer le jour comme fait'}
+      <button class="btn ${allDone ? 'btn--done' : 'btn--primary'} btn--lg" id="markDay">
+        ${allDone ? '✅ Jour terminé — tout décocher' : 'Tout marquer comme fait'}
       </button>
     </div>`);
   screen.appendChild(sheet);
 
   // Grille des jours
-  const grid = h(`<div class="card"><div class="card__title">Progression</div><div class="pgrid" id="pgrid"></div></div>`);
+  const grid = h(`<div class="card card--neon"><div class="card__title">Progression</div><div class="pgrid" id="pgrid"></div></div>`);
   const pg = grid.querySelector('#pgrid');
   for (let d = 1; d <= prog.days; d++) {
     const cell = h(`<button class="pcell ${isDayDone(prog, d, inst) ? 'is-done' : ''} ${d === day ? 'is-cur' : ''}">${d}</button>`);
@@ -807,27 +828,35 @@ function renderProgramSheet(inst) {
   screen.appendChild(grid);
   appEl.appendChild(screen);
 
-  sheet.querySelector('#backLib').onclick = () => { openInstanceId = null; render(); };
   sheet.querySelector('#prevD').onclick = () => { openProgramDay = Math.max(1, day - 1); render(); };
   sheet.querySelector('#nextD').onclick = () => { openProgramDay = Math.min(prog.days, day + 1); render(); };
-  sheet.querySelector('#markDay').onclick = () => {
-    setProgramRounds(inst.id, day, isDayDone(prog, day, inst) ? 0 : roundsNeeded);
-    render();
-  };
-  sheet.querySelectorAll('.round').forEach((b) => b.onclick = () => {
-    const r = +b.dataset.r;
-    const cur = (getInst(inst.id).rounds || {})[day] || 0;
-    setProgramRounds(inst.id, day, cur === r ? r - 1 : r); // tap = atteindre ce tour, re-tap = défaire
+  sheet.querySelector('#markDay').onclick = () => { setDayChecks(inst.id, day, items.length, allDone ? false : true); render(); };
+  sheet.querySelectorAll('.exitem').forEach((li) => li.onclick = () => {
+    toggleExercise(inst.id, day, +li.dataset.i, items.length);
     render();
   });
 }
 
-function getInst(id) { return (getState().myPrograms || []).find((p) => p.id === id) || { rounds: {} }; }
-function setProgramRounds(id, day, count) {
+function getInst(id) { return (getState().myPrograms || []).find((p) => p.id === id) || { done: {} }; }
+// Coche/décoche un exercice d'un jour.
+function toggleExercise(id, day, idx, total) {
   setState((s) => {
     const inst = s.myPrograms.find((p) => p.id === id);
     if (!inst) return;
-    inst.rounds = { ...(inst.rounds || {}), [day]: count };
+    inst.done = inst.done || {};
+    const arr = (inst.done[day] || []).slice();
+    while (arr.length < total) arr.push(false);
+    arr[idx] = !arr[idx];
+    inst.done[day] = arr;
+  });
+}
+// Coche (ou décoche) tous les exercices d'un jour.
+function setDayChecks(id, day, total, value) {
+  setState((s) => {
+    const inst = s.myPrograms.find((p) => p.id === id);
+    if (!inst) return;
+    inst.done = inst.done || {};
+    inst.done[day] = Array.from({ length: total }, () => value);
   });
 }
 
