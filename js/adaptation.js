@@ -94,10 +94,12 @@ export function planDay(state, dateISO) {
 
   // --- 1) Adaptation au type de service ------------------------------------
   switch (duty) {
+    case 'training':
     case 'flight': {
-      // Journée de vol = position assise prolongée + fatigue. On module selon
-      // le TEMPS DE SERVICE : plus c'est long, plus on assouplit (soulage le cœur).
+      // Vol ou formation/sim = journée sédentaire + fatigue. On module selon le
+      // TEMPS DE SERVICE : plus c'est long, plus on assouplit (soulage le cœur).
       const load = DUTY_LOADS[roster.dutyLoad] || DUTY_LOADS.medium;
+      const kind = duty === 'training' ? 'formation/sim' : 'vol';
       format = 'short';
       intensity = Math.max(1, intensity - load.reduce);
       if (load.soft) {
@@ -106,7 +108,7 @@ export function planDay(state, dateISO) {
         format = 'recovery';
         notes.push(`Service long (${load.label}) : séance assouplie, orientée mobilité et circulation pour soulager le cœur et récupérer.`);
       } else {
-        notes.push(`Jour de vol (${load.label}) : séance courte mobilité + activation, à caser avant ou après le service.`);
+        notes.push(`Journée ${kind} (${load.label}) : séance courte mobilité + activation, à caser avant ou après le service.`);
       }
       break;
     }
@@ -188,10 +190,26 @@ export function planDay(state, dateISO) {
     };
   }
 
-  // --- 4) Repas ------------------------------------------------------------
-  const meals = MEAL_PLANS[program.id] || MEAL_PLANS.fat_loss;
+  // --- 4) Préparation visite médicale (VM) : 1 mois avant -----------------
+  const prep = medicalPrep(state, dateISO);
+  if (prep.active) {
+    notes.push(`🩺 Visite médicale dans ${prep.daysLeft} j : mode remise en forme & perte de poids activé (diète allégée, régularité, hydratation).`);
+  }
 
-  return { program, dp, duty, fatigue, gym, session, meals, notes, needsGymQuestion };
+  // --- 5) Repas ------------------------------------------------------------
+  // En prépa VM, on bascule sur la diète perte de poids quel que soit l'objectif.
+  const mealKey = prep.active ? 'fat_loss' : program.id;
+  const meals = MEAL_PLANS[mealKey] || MEAL_PLANS.fat_loss;
+
+  return { program, dp, duty, fatigue, gym, session, meals, notes, needsGymQuestion, medicalPrep: prep };
+}
+
+// Préparation de la visite médicale : actif si la VM est dans 0..30 jours.
+export function medicalPrep(state, dateISO = todayISO()) {
+  const vm = state.medicalDateISO;
+  if (!vm) return { active: false, daysLeft: null, dateISO: null };
+  const daysLeft = daysBetween(dateISO, vm);
+  return { active: daysLeft >= 0 && daysLeft <= 30, daysLeft, dateISO: vm };
 }
 
 function titleFor(focus, format, gym) {

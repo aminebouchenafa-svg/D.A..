@@ -259,6 +259,7 @@ export const DUTY_TYPES = {
   flight:    { id: 'flight',    label: 'Vol',           icon: '✈️', color: '#2e7dff' },
   nightstop: { id: 'nightstop', label: 'Night stop',    icon: '🏨', color: '#7a5cff' },
   standby:   { id: 'standby',   label: 'Standby',       icon: '⏱️', color: '#f5a623' },
+  training:  { id: 'training',  label: 'Formation / Sim', icon: '🎓', color: '#00b3a4' },
   vacation:  { id: 'vacation',  label: 'Congé',         icon: '🌴', color: '#1fb86b' },
 };
 

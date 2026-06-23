@@ -56,73 +56,125 @@ export async function extractTextFromPDF(file) {
   return lines.join('\n');
 }
 
-// --- Dictionnaire des types de service (FR + EN + codes) --------------------
-// Ordre = priorité de détection (du plus spécifique au plus générique).
-const DUTY_RULES = [
-  { duty: 'vacation',  res: [/\bcong[ée]s?\b/i, /\bvacances?\b/i, /\bvac\b/i, /\bleave\b/i, /\bholiday\b/i, /\bcp\b/i, /\bannual\b/i] },
-  { duty: 'nightstop', res: [/\bnight\s?stop\b/i, /\bnightstop\b/i, /\bd[ée]couch/i, /\bescale\b/i, /\blayover\b/i, /\bhotel\b/i, /\bhtl\b/i, /\bn\/?s\b/i] },
-  { duty: 'standby',   res: [/\bstand\s?by\b/i, /\bst?by\b/i, /\br[ée]serve\b/i, /\bréserve\b/i, /\bresa?\b/i, /\bsb\b/i, /\bhot\s?standby\b/i] },
-  { duty: 'flight',    res: [/\bvols?\b/i, /\bflights?\b/i, /\bflt\b/i, /\bfly\b/i, /\bduty\b/i, /\b[A-Z]{2}\d{2,4}\b/, /\b[A-Z]{3}\s*[-→/]\s*[A-Z]{3}\b/] },
-  { duty: 'off',       res: [/\brepos\b/i, /\boff\b/i, /\brest\b/i, /\bjdr\b/i, /\brp\b/i, /\bday\s?off\b/i, /\bx\b/i] },
-];
+// ============================================================================
+// PARSEUR — calibré sur les rapports type "Personal Crew Schedule Report"
+// (dates en JJ/MM, code de service + horaires), avec repli générique.
+// ============================================================================
 
-export function detectDuty(line) {
-  for (const rule of DUTY_RULES) {
-    if (rule.res.some((re) => re.test(line))) {
-      return { duty: rule.duty, confident: true };
-    }
-  }
-  return { duty: 'off', confident: false }; // défaut prudent, à confirmer
+// Année déduite de la période du rapport (ex. "01/06/2026 - 30/06/2026").
+function inferYear(text) {
+  const m = text.match(/\b\d{1,2}\/\d{1,2}\/(\d{4})\b/);
+  return m ? +m[1] : null;
 }
 
-// --- Détection des dates ----------------------------------------------------
-const MONTHS = {
-  jan: 1, janv: 1, january: 1, janvier: 1, feb: 2, fev: 2, févr: 2, fevr: 2, february: 2, février: 2,
-  mar: 3, mars: 3, march: 3, apr: 4, avr: 4, april: 4, avril: 4, may: 5, mai: 5,
-  jun: 6, juin: 6, june: 6, jul: 7, juil: 7, july: 7, juillet: 7, aug: 8, aout: 8, août: 8, august: 8,
-  sep: 9, sept: 9, september: 9, septembre: 9, oct: 10, october: 10, octobre: 10,
-  nov: 11, november: 11, novembre: 11, dec: 12, déc: 12, december: 12, décembre: 12,
-};
-function monthIdx(token) {
-  const t = token.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  for (const k in MONTHS) {
-    const kk = k.normalize('NFD').replace(/[̀-ͯ]/g, '');
-    if (t.startsWith(kk)) return MONTHS[k];
-  }
-  return null;
-}
 function pad(n) { return String(n).padStart(2, '0'); }
 function mkISO(y, m, d) {
   if (m < 1 || m > 12 || d < 1 || d > 31) return null;
   return `${y}-${pad(m)}-${pad(d)}`;
 }
-function normYear(y) { return y < 100 ? 2000 + y : y; }
 
-// Analyse le texte → tableau { iso, duty, confident, raw }.
-export function parseRoster(text, opts = {}) {
-  const fallbackYear = opts.year || new Date().getFullYear();
+// Horaires HH:MM d'un segment → palier de temps de service.
+function loadFromTimes(seg) {
+  const times = [...seg.matchAll(/\b(\d{1,2}):(\d{2})\b/g)]
+    .map((t) => (+t[1]) * 60 + (+t[2]))
+    .filter((v) => v >= 0 && v < 1440);
+  if (times.length < 2) return undefined;
+  let span = Math.max(...times) - Math.min(...times);
+  if (span <= 0) span += 1440;             // service qui passe minuit
+  const h = span / 60;
+  return h < 6 ? 'short' : h < 9 ? 'medium' : h < 12 ? 'long' : 'xlong';
+}
+
+// Classifie un segment de jour → { duty, confident, dutyLoad }.
+const WEEKDAYS = /\b(MON|TUE|WED|THU|FRI|SAT|SUN|LUN|MAR|MER|JEU|VEN|SAM|DIM)\b/g;
+function classifySegment(seg) {
+  const cleaned = seg.replace(/[←-⇿]/g, ' ').replace(/\s+/g, ' ').trim();
+  const up = cleaned.toUpperCase();
+  const dutyLoad = loadFromTimes(cleaned);
+
+  // Visite médicale (VM) — jour non volant, mais on mémorise la date (prépa 1 mois avant)
+  if (/\b(VM|VME|VMC|VISITE ?M[ÉE]DIC|VIS ?MED|MEDICAL ?CHECK|AERO ?MED|EXPERTISE)\b/.test(up))
+    return { duty: 'off', confident: true, medical: true };
+  // Formation / simulateur / stages réglementaires
+  if (/\b(ESIM|ING\d*|SIM|STAGE|FORMATION|RECURRENT|DGR|CRM|SMS|EXPAS)\b/.test(up))
+    return { duty: 'training', confident: true, dutyLoad };
+  // Standby / réserve (HS = Home Standby)
+  if (/\b(HS|SBY|STBY|STAND ?BY|R[ÉE]SERVE|RESA?)\b/.test(up))
+    return { duty: 'standby', confident: true, dutyLoad };
+  // Congé / absence
+  if (/\b(CONG[ÉE]S?|CP|LEAVE|VAC|VACANCES|HOLID|ABS)\b/.test(up))
+    return { duty: 'vacation', confident: true };
+  // Repos : il ne reste que des "/", "//", "RH", flèches, jours de semaine
+  const residue = up.replace(WEEKDAYS, '').replace(/\bRH\b/g, '').replace(/[\/\s*.\-]/g, '');
+  if (residue === '') return { duty: 'off', confident: true };
+  // Night stop / découcher / escale
+  if (/\b(N\/?S|NIGHTSTOP|NIGHT STOP|D[ÉE]COUCH|ESCALE|LAYOVER|HOTEL|HTL)\b/.test(up))
+    return { duty: 'nightstop', confident: true, dutyLoad };
+  // Déplacement (positionnement / mise en place) → assimilé vol (sédentaire)
+  if (/\bDEPL\b/.test(up)) return { duty: 'flight', confident: true, dutyLoad };
+  // Vol : numéro de vol (3-4 chiffres) ou au moins une heure de prise de service
+  if (/\b\d{3,4}\b/.test(cleaned) || /\b\d{1,2}:\d{2}\b/.test(cleaned))
+    return { duty: 'flight', confident: /\b\d{3,4}\b/.test(cleaned), dutyLoad };
+  return { duty: 'off', confident: false };
+}
+
+// Segmente par marqueurs de jour "JJ/MM" (sans année) — format crew report.
+function parseByDayMarkers(body, year) {
+  const re = /(\d{1,2})\/(\d{1,2})(?!\/\d)/g; // JJ/MM non suivi de "/chiffre"
+  const marks = [];
+  let m;
+  while ((m = re.exec(body))) marks.push({ i: m.index, end: re.lastIndex, d: +m[1], mo: +m[2] });
+  if (!marks.length) return [];
   const out = [];
   const seen = new Set();
-  for (const raw of text.split('\n')) {
-    const line = raw.trim();
-    if (!line) continue;
-    let iso = null;
-
-    // jj/mm[/aaaa] ou jj.mm ou jj-mm
-    let m = line.match(/\b(\d{1,2})[\/.\-](\d{1,2})(?:[\/.\-](\d{2,4}))?\b/);
-    if (m) {
-      iso = mkISO(m[3] ? normYear(+m[3]) : fallbackYear, +m[2], +m[1]);
-    }
-    // jj MoisTexte (01 Jun / 3 mars / 12 décembre)
-    if (!iso) {
-      m = line.match(/\b(\d{1,2})\s*([A-Za-zéûàôîÉ]{3,9})\.?\b/);
-      if (m) { const mi = monthIdx(m[2]); if (mi) iso = mkISO(fallbackYear, mi, +m[1]); }
-    }
+  for (let k = 0; k < marks.length; k++) {
+    const seg = body.slice(marks[k].end, k + 1 < marks.length ? marks[k + 1].i : body.length);
+    const iso = mkISO(year, marks[k].mo, marks[k].d);
     if (!iso || seen.has(iso)) continue;
     seen.add(iso);
-    const d = detectDuty(line);
-    out.push({ iso, duty: d.duty, confident: d.confident, raw: line.slice(0, 80) });
+    const c = classifySegment(seg);
+    out.push({ iso, duty: c.duty, confident: c.confident, dutyLoad: c.dutyLoad, medical: !!c.medical, raw: seg.replace(/\s+/g, ' ').trim().slice(0, 60) });
   }
-  out.sort((a, b) => (a.iso < b.iso ? -1 : 1));
   return out;
+}
+
+// Repli générique (autres compagnies) : une date par ligne, mot-clé sur la ligne.
+const GENERIC_RULES = [
+  { duty: 'vacation',  re: /\bcong[ée]|leave|vac|holiday|\bcp\b/i },
+  { duty: 'nightstop', re: /night ?stop|d[ée]couch|escale|layover|hotel|\bn\/?s\b/i },
+  { duty: 'standby',   re: /stand ?by|\bst?by\b|r[ée]serve|\bhs\b/i },
+  { duty: 'training',  re: /\b(sim|esim|ing\d*|formation|stage|training)\b/i },
+  { duty: 'flight',    re: /\bvols?\b|\bflights?\b|\bflt\b|\b[A-Z]{2}\d{2,4}\b|\b\d{3,4}\b/i },
+  { duty: 'off',       re: /\brepos\b|\boff\b|\brest\b|\brh\b|\/{1,2}/i },
+];
+const GENERIC_MEDICAL = /\b(vm|vme|vmc|visite ?m[ée]dic|vis ?med|medical ?check|aero ?med|expertise)\b/i;
+function parseGenericLines(text, year) {
+  const out = [];
+  const seen = new Set();
+  for (const line of text.split('\n')) {
+    let iso = null;
+    let m = line.match(/\b(\d{1,2})[\/.\-](\d{1,2})(?:[\/.\-](\d{2,4}))?\b/);
+    if (m) iso = mkISO(m[3] ? (+m[3] < 100 ? 2000 + +m[3] : +m[3]) : year, +m[2], +m[1]);
+    if (!iso || seen.has(iso)) continue;
+    const medical = GENERIC_MEDICAL.test(line);
+    const rule = medical ? { duty: 'off' } : GENERIC_RULES.find((r) => r.re.test(line));
+    if (!rule) continue;
+    seen.add(iso);
+    out.push({ iso, duty: rule.duty, confident: medical || rule.duty !== 'off', dutyLoad: loadFromTimes(line), medical, raw: line.trim().slice(0, 60) });
+  }
+  return out;
+}
+
+// Point d'entrée : renvoie [{ iso, duty, confident, dutyLoad, raw }] trié.
+export function parseRoster(text, opts = {}) {
+  const year = opts.year || inferYear(text) || new Date().getFullYear();
+  // On ne garde que la zone planning (avant les stats / détails / expirations).
+  let body = text;
+  const cut = body.search(/Total Hours and Statistics|Expiry Dates|Training Details|Duty\s+Details/i);
+  if (cut > 0) body = body.slice(0, cut);
+
+  let entries = parseByDayMarkers(body, year);
+  if (entries.length < 3) entries = parseGenericLines(text, year); // repli
+  entries.sort((a, b) => (a.iso < b.iso ? -1 : 1));
+  return entries;
 }

@@ -14,8 +14,9 @@ const DEFAULT_STATE = {
     weightKg: null,
     targetWeightKg: null,
   },
-  programId: null,      // 'fat_loss' | 'tone' | 'maintain'
+  programId: null,      // 'fat_loss' | 'cut' | 'tone' | 'maintain' | 'mass'
   startDateISO: null,   // début du cycle 30 jours
+  medicalDateISO: null, // date de la visite médicale (VM) — prépa 1 mois avant
   cycleCount: 0,        // nombre de cycles renouvelés
   roster: {},           // { 'YYYY-MM-DD': { duty, fatigue, gym } }
   logs: {},             // { 'YYYY-MM-DD': { workoutDone, meals:{breakfast,lunch,dinner,snack}, weightKg } }

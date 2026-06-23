@@ -186,6 +186,19 @@ function renderToday() {
     </div>`);
   screen.appendChild(header);
 
+  // Bannière préparation visite médicale (VM) — active 1 mois avant
+  if (plan.medicalPrep && plan.medicalPrep.active) {
+    const d = plan.medicalPrep.daysLeft;
+    screen.appendChild(h(`
+      <div class="vm-banner">
+        <div class="vm-banner__icon">🩺</div>
+        <div>
+          <div class="vm-banner__title">Visite médicale dans ${d} jour${d > 1 ? 's' : ''}</div>
+          <div class="vm-banner__sub">Mode remise en forme &amp; perte de poids activé : diète allégée, régularité, hydratation.</div>
+        </div>
+      </div>`));
+  }
+
   // Bandeau roster + fatigue + salle
   screen.appendChild(renderDutyStrip(plan));
 
@@ -589,7 +602,7 @@ function openRosterReview(entries) {
   const listEl = overlay.querySelector('#rvList');
   listEl.innerHTML = entries.map((en, i) => `
     <div class="rv-row">
-      <div class="rv-date">${cap(fmtDateShort(en.iso))} ${en.confident ? '' : '⚠️'}</div>
+      <div class="rv-date">${cap(fmtDateShort(en.iso))} ${en.medical ? '🩺' : (en.confident ? '' : '⚠️')}</div>
       <select class="rv-duty" data-i="${i}">
         ${Object.values(DUTY_TYPES).map((d) =>
           `<option value="${d.id}" ${en.duty === d.id ? 'selected' : ''}>${d.icon} ${d.label}</option>`).join('')}
@@ -612,11 +625,14 @@ function openRosterReview(entries) {
 
   overlay.querySelector('#rvClose').onclick = () => overlay.remove();
   overlay.querySelector('#rvApply').onclick = () => {
+    let vm = null;
     entries.forEach((en) => {
       const patch = { duty: en.duty };
-      if (en.duty === 'flight' || en.duty === 'nightstop') patch.dutyLoad = en.dutyLoad || 'medium';
+      if (en.duty === 'flight' || en.duty === 'nightstop' || en.duty === 'training') patch.dutyLoad = en.dutyLoad || 'medium';
       setRoster(en.iso, patch);
+      if (en.medical) vm = en.iso; // dernière VM détectée
     });
+    if (vm) setState({ medicalDateISO: vm });
     overlay.remove();
     render();
   };
@@ -741,6 +757,14 @@ function renderSettings() {
       </div>
     </div>
     <div class="card">
+      <div class="card__title">🩺 Visite médicale (VM)</div>
+      <p class="muted">FLOW la détecte dans ton roster, ou saisis-la ici. 1 mois avant, un programme remise en forme &amp; perte de poids s’active automatiquement.</p>
+      <label class="weight-input">Date de ma prochaine VM
+        <input type="date" id="vmDate" value="${state.medicalDateISO || ''}" />
+      </label>
+      ${state.medicalDateISO ? `<button class="btn btn--ghost" id="vmClear">Effacer la date</button>` : ''}
+    </div>
+    <div class="card">
       <div class="card__title">Cycle</div>
       <p class="muted">Démarré le ${state.startDateISO ? cap(fmtDateLong(state.startDateISO)) : '—'}.</p>
       <button class="btn" id="renewBtn">🔄 Renouveler un cycle de 30 jours (aujourd’hui)</button>
@@ -759,6 +783,12 @@ function renderSettings() {
     setState((s) => { s.programId = e.target.value; });
     render();
   });
+  screen.querySelector('#vmDate').addEventListener('change', (e) => {
+    setState({ medicalDateISO: e.target.value || null });
+    render();
+  });
+  const vmClear = screen.querySelector('#vmClear');
+  if (vmClear) vmClear.onclick = () => { setState({ medicalDateISO: null }); render(); };
   screen.querySelector('#renewBtn').onclick = () => {
     setState((s) => { s.startDateISO = todayISO(); s.cycleCount = (s.cycleCount || 0) + 1; });
     currentView = 'today'; selectedDate = todayISO(); render();

@@ -305,3 +305,13 @@ body {
 .rv-date { flex: 0 0 88px; font-size: .85rem; }
 .rv-duty { flex: 1; min-width: 0; padding: 8px; border-radius: 8px; background: var(--bg-elev); border: 1px solid var(--line); color: var(--text); }
 .rv-load { flex: 0 0 84px; padding: 8px 6px; border-radius: 8px; background: var(--bg-elev); border: 1px solid var(--line); color: var(--text); }
+
+/* === Bannière préparation visite médicale (VM) =========================== */
+.vm-banner {
+  display: flex; align-items: center; gap: 12px; margin: 12px 0;
+  background: linear-gradient(135deg, rgba(0,179,164,.18), rgba(46,125,255,.12));
+  border: 1px solid rgba(0,179,164,.45); border-radius: var(--radius); padding: 14px;
+}
+.vm-banner__icon { font-size: 1.8rem; }
+.vm-banner__title { font-weight: 800; }
+.vm-banner__sub { color: var(--muted); font-size: .82rem; margin-top: 2px; }

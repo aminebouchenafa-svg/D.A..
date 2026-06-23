@@ -5,11 +5,19 @@
 // ============================================================================
 
 import { PROGRAMS, MEAL_PLANS } from './data.js';
+import { medicalPrep } from './adaptation.js';
+
+// Programme effectif pour la diète : en prépa visite médicale, on force la
+// perte de poids quel que soit l'objectif choisi.
+function effectiveProgram(state) {
+  if (medicalPrep(state).active) return PROGRAMS.fat_loss;
+  return PROGRAMS[state.programId] || PROGRAMS.fat_loss;
+}
 
 // Cible du jour : kcal + grammes de protéines / glucides / lipides.
 // kcal = poids(kg) × kcalPerKg ; puis répartition selon macroSplit (% des kcal).
 export function dailyTargets(state) {
-  const program = PROGRAMS[state.programId] || PROGRAMS.fat_loss;
+  const program = effectiveProgram(state);
   const weight = state.profile && state.profile.weightKg ? state.profile.weightKg : 75;
   const kcal = Math.round(weight * program.kcalPerKg);
   const s = program.macroSplit;
@@ -33,7 +41,7 @@ function planTotalKcal(programId) {
 // On somme les kcal des repas cochés, et on projette les macros au prorata.
 export function achievedFromLog(state, dateISO) {
   const log = state.logs[dateISO];
-  const program = PROGRAMS[state.programId] || PROGRAMS.fat_loss;
+  const program = effectiveProgram(state);
   const meals = MEAL_PLANS[program.id] || MEAL_PLANS.fat_loss;
   const checked = (log && log.meals) || {};
   let kcal = 0;
