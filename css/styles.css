@@ -221,3 +221,68 @@ body {
 }
 .tab__icon { font-size: 1.25rem; }
 .tab--active { color: var(--accent); }
+
+/* === ENRICHISSEMENTS (macros, IG, HIIT, mesures, rating) ================== */
+
+/* Barres de macros */
+.macros { display: grid; gap: 8px; margin: 10px 0 14px; }
+.macro__top { display: flex; justify-content: space-between; font-size: .78rem; color: var(--muted); margin-bottom: 3px; }
+.macro__track { height: 8px; background: var(--bg-elev); border-radius: 20px; overflow: hidden; border: 1px solid var(--line); }
+.macro__fill { height: 100%; border-radius: 20px; transition: width .35s; }
+
+/* Boutons spécifiques */
+.btn--hiit { background: linear-gradient(90deg, #ff5a3c, #e0457b); border: none; color: #fff; margin-top: 6px; }
+.btn--warn { background: #f5a623; border-color: #f5a623; color: #18120a; }
+
+/* Auto-évaluation */
+.rating { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.rating__q { font-weight: 600; margin-bottom: 8px; }
+
+/* Mesures */
+.meas-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+.meas { font-size: .8rem; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+.meas input { padding: 10px; border-radius: 10px; background: var(--bg-elev); border: 1px solid var(--line); color: var(--text); font-size: 1rem; }
+
+/* Modal (Index Glycémique) */
+.modal {
+  position: fixed; inset: 0; z-index: 100; background: rgba(2,6,15,.6);
+  display: flex; align-items: flex-end; justify-content: center; backdrop-filter: blur(4px);
+  animation: fade .15s ease;
+}
+.modal__sheet {
+  width: 100%; max-width: 560px; max-height: 88vh; background: var(--bg-card);
+  border: 1px solid var(--line); border-radius: 20px 20px 0 0; padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column;
+}
+.modal__head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.modal__head h2 { margin: 0; font-size: 1.2rem; }
+.gi-search {
+  width: 100%; padding: 12px; border-radius: 12px; font-size: 1rem;
+  background: var(--bg-elev); border: 1px solid var(--line); color: var(--text);
+}
+.gi-legend { display: flex; gap: 12px; flex-wrap: wrap; margin: 10px 0; font-size: .72rem; color: var(--muted); }
+.gi-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
+.gi-list { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.gi-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 4px; border-bottom: 1px solid var(--line); }
+.gi-name { font-size: .9rem; }
+.gi-val { min-width: 34px; text-align: center; padding: 3px 6px; border-radius: 8px; color: #06120a; font-weight: 800; font-size: .82rem; }
+
+/* Minuteur HIIT plein écran */
+.hiit {
+  position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center;
+  background: #0b1220; color: #fff; transition: background .3s;
+}
+.hiit[data-type="work"] { background: linear-gradient(160deg, #c0392b, #7a1f17); }
+.hiit[data-type="rest"] { background: linear-gradient(160deg, #15643a, #0b3a22); }
+.hiit[data-type="prepare"] { background: linear-gradient(160deg, #1b3a6b, #0b1f3a); }
+.hiit[data-type="done"] { background: linear-gradient(160deg, #2e7dff, #7a5cff); }
+.hiit__inner { text-align: center; padding: 24px; width: 100%; max-width: 480px; }
+.hiit__phase { font-size: 1.1rem; letter-spacing: .25em; opacity: .85; font-weight: 700; }
+.hiit__count { font-size: 6rem; font-weight: 900; line-height: 1; margin: 8px 0; font-variant-numeric: tabular-nums; }
+.hiit__name { font-size: 1.5rem; font-weight: 700; min-height: 1.6em; }
+.hiit__next { opacity: .8; margin-top: 8px; min-height: 1.4em; }
+.hiit__progress { height: 10px; background: rgba(255,255,255,.2); border-radius: 20px; overflow: hidden; margin: 20px 0; }
+.hiit__bar { height: 100%; background: #fff; width: 0; }
+.hiit__controls { display: flex; gap: 10px; justify-content: center; }
+.hiit__controls .btn { background: rgba(255,255,255,.15); border-color: rgba(255,255,255,.3); color: #fff; }
+.hiit__controls .btn--danger { border-color: rgba(255,255,255,.6); color: #fff; }

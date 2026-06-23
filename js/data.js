@@ -21,33 +21,55 @@
 //     }
 // ============================================================================
 
+// Chaque programme définit une RÉPARTITION MACRO de base (en % des kcal) et un
+// niveau de calories par kg de poids (kcalPerKg). Les cibles en grammes sont
+// ensuite calculées selon le poids du pilote (cf. js/nutrition.js).
+// Répartition inspirée des documents fournis (foodspring, Jamcore, R. Georges).
 export const PROGRAMS = {
   fat_loss: {
     id: 'fat_loss',
     name: 'Perte de poids rapide',
     tagline: 'Déficit calorique + HIIT court. 30 jours renouvelables.',
     color: '#ff5a3c',
-    calorieTarget: 1800,          // kcal/jour cible (ajusté au profil ensuite)
-    proteinTargetG: 140,
     focus: 'HIIT & déficit',
+    kcalPerKg: 24,                 // déficit
+    macroSplit: { p: 40, c: 30, f: 30 }, // % des kcal — protéines hautes
+  },
+  cut: {
+    id: 'cut',
+    name: 'Sèche musculaire',
+    tagline: 'Déficit maîtrisé, protéines hautes pour garder le muscle.',
+    color: '#e0457b',
+    focus: 'Sèche',
+    kcalPerKg: 28,
+    macroSplit: { p: 45, c: 25, f: 30 },
   },
   tone: {
     id: 'tone',
     name: 'Tonification & forme',
     tagline: 'Renforcement musculaire, équilibre cardio/force.',
     color: '#2e7dff',
-    calorieTarget: 2100,
-    proteinTargetG: 150,
     focus: 'Force & cardio',
+    kcalPerKg: 33,
+    macroSplit: { p: 30, c: 40, f: 30 },
   },
   maintain: {
     id: 'maintain',
     name: 'Maintien & régularité',
     tagline: 'Garder la forme malgré les rotations. Faible friction.',
     color: '#1fb86b',
-    calorieTarget: 2300,
-    proteinTargetG: 130,
     focus: 'Régularité',
+    kcalPerKg: 36,
+    macroSplit: { p: 30, c: 45, f: 25 },
+  },
+  mass: {
+    id: 'mass',
+    name: 'Prise de masse',
+    tagline: 'Surplus calorique, 6 repas. Inspiré du programme Jamcore.',
+    color: '#7a5cff',
+    focus: 'Masse',
+    kcalPerKg: 44,
+    macroSplit: { p: 35, c: 50, f: 15 }, // ratio Jamcore
   },
 };
 
@@ -188,12 +210,26 @@ export const MEAL_PLANS = {
     snack:     { title: 'Collation', items: ['Skyr + fruit', 'Oléagineux'], kcal: 350 },
     tips: 'Vise la protéine à chaque repas. Adapte les portions de féculents aux jours d’entraînement.',
   },
+  cut: {
+    breakfast: { title: 'Petit-déjeuner sec', items: ['Œufs / blancs d’œufs', 'Skyr 0 %', 'Café/thé sans sucre'], kcal: 350 },
+    lunch:     { title: 'Déjeuner', items: ['Protéine maigre 150 g', 'Légumes verts à volonté', 'Féculents IG bas (¼ d’assiette)'], kcal: 500 },
+    dinner:    { title: 'Dîner protéiné', items: ['Poisson blanc / volaille', 'Légumes', 'Pas de féculents le soir'], kcal: 450 },
+    snack:     { title: 'Collation', items: ['Whey + quelques amandes', 'Eau +++'], kcal: 200 },
+    tips: 'Sèche : protéines hautes pour préserver le muscle, glucides surtout autour de la séance. Privilégie les aliments à IG bas (cf. Index Glycémique).',
+  },
   maintain: {
     breakfast: { title: 'Petit-déjeuner', items: ['Au choix équilibré', 'Protéine + fruit'], kcal: 550 },
     lunch:     { title: 'Déjeuner', items: ['Repas équilibré', 'Protéine + féculents + légumes'], kcal: 700 },
     dinner:    { title: 'Dîner', items: ['Repas normal, raisonnable'], kcal: 650 },
     snack:     { title: 'Collation', items: ['Fruit, oléagineux'], kcal: 400 },
     tips: 'Mange à ta faim mais reste régulier. Priorité : hydratation et sommeil autour des vols.',
+  },
+  mass: {
+    breakfast: { title: 'Repas 1', items: ['100–150 g flocons d’avoine + lait', '30 g whey', '1 fruit'], kcal: 650 },
+    lunch:     { title: 'Repas 3 (déjeuner)', items: ['200 g riz/pâtes/patate (cuit)', '150 g viande/poisson', 'Salade + ¼ avocat + huile d’olive'], kcal: 800 },
+    dinner:    { title: 'Repas 5 (dîner)', items: ['Féculents complets', 'Protéine 150 g', 'Légumes'], kcal: 750 },
+    snack:     { title: 'Repas 2/4/6 (collations)', items: ['Shaker whey + banane', 'Flocons d’avoine / oléagineux'], kcal: 800 },
+    tips: 'Prise de masse (inspiré Jamcore) : ~6 repas/jour, ratio ~50 % glucides / 35 % protéines / 15 % lipides. 3 L d’eau/jour. Adapte le total à ton morphotype (ecto +, endo −).',
   },
 };
 

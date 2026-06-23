@@ -12,6 +12,9 @@ import {
   planDay, todayISO, toISO, addDays, programDayFor,
   computeStreak, completedCount,
 } from './adaptation.js';
+import { dailyTargets, achievedFromLog } from './nutrition.js';
+import { searchGI, giCategory } from './glycemic.js';
+import { openHiitTimer } from './timer.js';
 
 const appEl = document.getElementById('app');
 const tabbar = document.getElementById('tabbar');
@@ -269,6 +272,9 @@ function renderSessionCard(plan, log) {
       </div>`);
   }
 
+  // Minuteur HIIT proposé si la séance contient du cardio (focus cardio ou exos cardio).
+  const isHiit = s.focus === 'cardio' || s.blocks.some((b) => b.items.some((e) => e.type === 'cardio'));
+
   const blocksHtml = s.blocks.map((b) => `
     <div class="block">
       <div class="block__label">${b.label}</div>
@@ -295,15 +301,30 @@ function renderSessionCard(plan, log) {
       </div>
       ${plan.notes.length ? `<div class="notes">${plan.notes.map((n) => `<div class="note">💡 ${esc(n)}</div>`).join('')}</div>` : ''}
       ${blocksHtml}
+      ${isHiit ? `<button class="btn btn--hiit btn--lg" id="hiitBtn">⏱ Lancer le minuteur HIIT (20/10)</button>` : ''}
       <button class="btn btn--primary btn--lg ${log.workoutDone ? 'btn--done' : ''}" id="doneBtn">
         ${log.workoutDone ? '✅ Séance validée' : 'Marquer la séance comme faite'}
       </button>
+      ${log.workoutDone ? `
+        <div class="rating">
+          <div class="rating__q">Comment c'était ?</div>
+          <div class="row">
+            <button class="btn ${log.rating === 'nailed' ? 'btn--done' : ''}" data-rate="nailed">💪 NAILED IT</button>
+            <button class="btn ${log.rating === 'barely' ? 'btn--warn' : ''}" data-rate="barely">😮‍💨 BARELY MADE IT</button>
+          </div>
+          ${log.rating === 'barely' ? '<div class="note">💡 Noté. FLOW proposera une intensité plus douce si la fatigue persiste.</div>' : ''}
+        </div>` : ''}
     </div>`);
 
   card.querySelector('#doneBtn').onclick = () => {
     setLog(selectedDate, { workoutDone: !log.workoutDone });
     render();
   };
+  const hiitBtn = card.querySelector('#hiitBtn');
+  if (hiitBtn) hiitBtn.onclick = () => openHiitTimer(s.blocks[1].items);
+  card.querySelectorAll('[data-rate]').forEach((b) => {
+    b.onclick = () => { setLog(selectedDate, { rating: b.dataset.rate }); render(); };
+  });
   return card;
 }
 
@@ -317,18 +338,34 @@ function workLabel(w) {
 }
 
 function renderMealsCard(plan, log) {
+  const state = getState();
   const m = plan.meals;
   const slots = [
     ['breakfast', m.breakfast], ['lunch', m.lunch],
     ['dinner', m.dinner], ['snack', m.snack],
   ];
-  const totalKcal = slots.reduce((a, [, v]) => a + (v?.kcal || 0), 0);
   const meals = log.meals || {};
+  const tgt = dailyTargets(state);
+  const got = achievedFromLog(state, selectedDate);
+
+  const macroBar = (label, val, max, unit, color) => {
+    const pct = max ? Math.min(100, Math.round((val / max) * 100)) : 0;
+    return `<div class="macro">
+      <div class="macro__top"><span>${label}</span><span>${val}/${max}${unit}</span></div>
+      <div class="macro__track"><div class="macro__fill" style="width:${pct}%;background:${color}"></div></div>
+    </div>`;
+  };
 
   const card = h(`
     <div class="card meals">
-      <div class="card__eyebrow">Diète · ${plan.program.name} · ~${totalKcal} kcal</div>
+      <div class="card__eyebrow">Diète · ${plan.program.name} · objectif ${tgt.kcal} kcal</div>
       <div class="card__title">🍽️ Repas du jour</div>
+      <div class="macros">
+        ${macroBar('Calories', got.kcal, tgt.kcal, '', '#ff5a3c')}
+        ${macroBar('Protéines', got.p, tgt.p, ' g', '#2e7dff')}
+        ${macroBar('Glucides', got.c, tgt.c, ' g', '#f5a623')}
+        ${macroBar('Lipides', got.f, tgt.f, ' g', '#7a5cff')}
+      </div>
       <div class="meal-slots">
         ${slots.map(([key, v]) => `
           <label class="meal ${meals[key] ? 'is-checked' : ''}" data-key="${key}">
@@ -339,6 +376,7 @@ function renderMealsCard(plan, log) {
             </div>
           </label>`).join('')}
       </div>
+      <button class="btn btn--ghost" id="giBtn">🔍 Index glycémique des aliments</button>
       <div class="note">💡 ${esc(m.tips)}</div>
     </div>`);
 
@@ -347,10 +385,50 @@ function renderMealsCard(plan, log) {
       const key = el.dataset.key;
       const cur = getLog(selectedDate).meals || {};
       setLog(selectedDate, { meals: { ...cur, [key]: e.target.checked } });
-      el.classList.toggle('is-checked', e.target.checked);
+      render(); // rafraîchit les barres de macros
     });
   });
+  card.querySelector('#giBtn').onclick = openGIModal;
   return card;
+}
+
+// --- Modal Index Glycémique -------------------------------------------------
+function openGIModal() {
+  const overlay = h(`
+    <div class="modal">
+      <div class="modal__sheet">
+        <div class="modal__head">
+          <h2>🔍 Index Glycémique</h2>
+          <button class="iconbtn" id="giClose" aria-label="Fermer">✕</button>
+        </div>
+        <input type="search" id="giSearch" class="gi-search" placeholder="Rechercher un aliment (ex. riz, pomme, pain)…" />
+        <div class="gi-legend">
+          <span><i style="background:#1fb86b"></i>IG bas &lt;40</span>
+          <span><i style="background:#f5a623"></i>moyen 40–59</span>
+          <span><i style="background:#ff5a5a"></i>élevé ≥60</span>
+        </div>
+        <div class="gi-list" id="giList"></div>
+      </div>
+    </div>`);
+  document.body.appendChild(overlay);
+  const list = overlay.querySelector('#giList');
+  const input = overlay.querySelector('#giSearch');
+
+  const paint = (q) => {
+    const res = searchGI(q || '');
+    list.innerHTML = res.map((f) => {
+      const c = giCategory(f.ig);
+      return `<div class="gi-row">
+        <span class="gi-name">${esc(f.n)}</span>
+        <span class="gi-val" style="background:${c.color}">${f.ig}</span>
+      </div>`;
+    }).join('') || '<p class="muted">Aucun résultat.</p>';
+  };
+  paint('');
+  input.addEventListener('input', (e) => paint(e.target.value));
+  overlay.querySelector('#giClose').onclick = () => overlay.remove();
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  setTimeout(() => input.focus(), 50);
 }
 
 // ============================================================================
@@ -506,6 +584,34 @@ function renderProgress() {
     if (v) { setLog(todayISO(), { weightKg: v }); render(); }
   };
   screen.appendChild(weightCard);
+
+  // Mesures corporelles (inspiré du T25 Fitness Journal)
+  const MEAS = [['chest', 'Poitrine'], ['waist', 'Taille'], ['arm', 'Bras'], ['thigh', 'Cuisse']];
+  const last = latestMeasures(state);
+  const measCard = h(`
+    <div class="card">
+      <div class="card__title">📏 Mesures (cm)</div>
+      <p class="muted">Photo « avant » + tour de taille = les meilleurs indicateurs, mieux que la balance seule.</p>
+      <div class="meas-grid">
+        ${MEAS.map(([k, lbl]) => `
+          <label class="meas">${lbl}
+            <input type="number" data-meas="${k}" step="0.5" min="10" max="200"
+              placeholder="${last[k] ?? '—'}" value="" />
+          </label>`).join('')}
+      </div>
+      <button class="btn" id="measSave">Enregistrer mes mesures du jour</button>
+    </div>`);
+  measCard.querySelector('#measSave').onclick = () => {
+    const cur = { ...(getLog(todayISO()).measures || {}) };
+    measCard.querySelectorAll('[data-meas]').forEach((inp) => {
+      const v = num(inp.value);
+      if (v) cur[inp.dataset.meas] = v;
+    });
+    setLog(todayISO(), { measures: cur });
+    render();
+  };
+  screen.appendChild(measCard);
+
   appEl.appendChild(screen);
 }
 
@@ -514,6 +620,15 @@ function latestWeight(state) {
     .filter(([, l]) => l.weightKg != null)
     .sort((a, b) => (a[0] < b[0] ? 1 : -1));
   return entries.length ? entries[0][1].weightKg : null;
+}
+
+function latestMeasures(state) {
+  const out = {};
+  Object.keys(state.logs).sort().forEach((iso) => {
+    const m = state.logs[iso].measures;
+    if (m) Object.assign(out, m); // la plus récente écrase
+  });
+  return out;
 }
 
 // ============================================================================
