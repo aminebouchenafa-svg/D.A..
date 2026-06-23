@@ -8,7 +8,56 @@
 // Petit utilitaire de progression hebdomadaire.
 const week = (day) => Math.floor((day - 1) / 7);
 
+// 30-Day Belly Fat Burn — contenu jour par jour (null = repos). Transcrit de
+// l'infographie fournie. Repos : J7, J14, J24.
+const BELLY30 = [
+  ['20 Crunchs', '15 Relevés de jambes', '45 s Planche'],
+  ['25 Crunchs', '15 Crunchs vélo', '45 s Planche'],
+  ['25 Relevés de jambes', '20 s Battements de jambes', '45 s Planche'],
+  ['30 Crunchs', '20 Russian twists', '1 min Planche'],
+  ['30 Relevés de jambes', '20 Crunchs vélo', '1 min Planche'],
+  ['30 s Mountain climbers', '20 Relevés de jambes', '1 min Planche'],
+  null, // J7 repos
+  ['35 Crunchs', '25 Russian twists', '1 min Planche'],
+  ['35 Relevés de jambes', '25 Crunchs vélo', '1:15 Planche'],
+  ['40 s Mountain climbers', '25 Battements de jambes', '1:15 Planche'],
+  ['40 Crunchs', '25 Russian twists', '1:15 Planche'],
+  ['40 Relevés de jambes', '30 Crunchs vélo', '1:30 Planche'],
+  ['45 s Mountain climbers', '30 Battements de jambes', '1:30 Planche'],
+  null, // J14 repos
+  ['45 Crunchs', '30 Russian twists', '1:30 Planche'],
+  ['45 Relevés de jambes', '30 Crunchs vélo', '1:45 Planche'],
+  ['50 s Mountain climbers', '35 Battements de jambes', '1:45 Planche'],
+  ['50 Crunchs', '35 Russian twists', '1:45 Planche'],
+  ['50 Relevés de jambes', '35 Crunchs vélo', '2 min Planche'],
+  ['1 min Mountain climbers', '40 Battements de jambes', '2 min Planche'],
+  ['55 Crunchs', '40 Russian twists', '2 min Planche'],
+  ['55 Relevés de jambes', '40 Crunchs vélo', '2:15 Planche'],
+  ['1:15 Mountain climbers', '45 Battements de jambes', '2:15 Planche'],
+  null, // J24 repos
+  ['60 Crunchs', '45 Russian twists', '2:30 Planche'],
+  ['60 Relevés de jambes', '45 Crunchs vélo', '2:30 Planche'],
+  ['1:30 Mountain climbers', '50 Battements de jambes', '2:30 Planche'],
+  ['65 Crunchs', '50 Russian twists', '2:45 Planche'],
+  ['65 Relevés de jambes', '50 Crunchs vélo', '2:45 Planche'],
+  ['2 min Mountain climbers', '60 Battements de jambes', '3 min Planche'],
+];
+
 export const PROGRAMS_LIB = [
+  {
+    id: 'belly30',
+    name: '30-Day Belly Fat Burn',
+    emoji: '🔥',
+    days: 30,
+    dietKey: 'fat_loss',
+    desc: 'Spécial ventre plat : crunchs, gainage, planche progressive. Repos J7/J14/J24.',
+    build: (d) => {
+      const x = BELLY30[d - 1];
+      return x
+        ? { subtitle: 'Ceinture abdominale', rounds: 1, items: x }
+        : { subtitle: 'Repos', rounds: 1, items: ['Repos', 'Marche / étirements 10 min', 'Hydratation +++'] };
+    },
+  },
   {
     id: 'daily4',
     name: 'Défi Quotidien × 4 tours',
