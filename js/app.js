@@ -4,7 +4,7 @@
 
 import { APP } from './config.js';
 import { PROGRAMS, DUTY_TYPES, DUTY_LOADS } from './data.js';
-import { extractTextFromPDF, parseRoster } from './roster-import.js';
+import { extractTextFromPDF, importRoster, parseRoster } from './roster-import.js';
 import {
   getState, setState, resetState, setRoster, getLog, setLog,
   exportJSON, importJSON,
@@ -527,8 +527,7 @@ function renderRoster() {
     if (!file) return;
     statusEl.textContent = '⏳ Lecture du PDF…';
     try {
-      const text = await extractTextFromPDF(file);
-      const entries = parseRoster(text);
+      const entries = await importRoster(file);
       if (!entries.length) {
         statusEl.innerHTML = '⚠️ Aucune date détectée automatiquement. Envoie-moi ce PDF en exemple pour que j’affine la lecture — en attendant, saisis tes journées ci-dessous.';
         return;
