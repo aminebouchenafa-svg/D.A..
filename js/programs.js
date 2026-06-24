@@ -48,6 +48,7 @@ export const PROGRAMS_LIB = [
     id: 'belly30',
     name: '30-Day Belly Fat Burn',
     emoji: '🔥',
+    color: '#ff5a3c',
     days: 30,
     dietKey: 'fat_loss',
     desc: 'Spécial ventre plat : crunchs, gainage, planche progressive. Repos J7/J14/J24.',
@@ -62,6 +63,7 @@ export const PROGRAMS_LIB = [
     id: 'daily4',
     name: 'Défi Quotidien × 4 tours',
     emoji: '🔥',
+    color: '#e0457b',
     days: 30,
     dietKey: 'fat_loss',
     desc: 'Le même circuit chaque jour, 4 tours. Simple, court, redoutable.',
@@ -84,6 +86,7 @@ export const PROGRAMS_LIB = [
     id: 'express7',
     name: 'Défi 7 jours Express',
     emoji: '⚡',
+    color: '#f5a623',
     days: 7,
     dietKey: 'fat_loss',
     desc: 'Une semaine pour relancer la machine. Un focus par jour.',
@@ -105,6 +108,7 @@ export const PROGRAMS_LIB = [
     id: 'fullbody15',
     name: 'Full Body 15 jours',
     emoji: '💪',
+    color: '#2e7dff',
     days: 15,
     dietKey: 'tone',
     desc: 'Deux semaines de renforcement complet, repos actif tous les 5 jours.',
@@ -125,6 +129,7 @@ export const PROGRAMS_LIB = [
     id: 'pushup28',
     name: 'Défi Pompes 28 jours',
     emoji: '🪖',
+    color: '#1fb86b',
     days: 28,
     dietKey: 'maintain',
     desc: 'Progression militaire : de débutant à 50+ pompes, jours « repos » inclus.',
@@ -147,6 +152,7 @@ export const PROGRAMS_LIB = [
     id: 'morning30',
     name: 'Routine Matinale Maison',
     emoji: '🌅',
+    color: '#7a5cff',
     days: 30,
     dietKey: 'maintain',
     desc: 'La même routine chaque matin pendant 30 jours. Discipline = résultats.',
@@ -163,8 +169,9 @@ export function getProgram(id) {
   return PROGRAMS_LIB.find((p) => p.id === id) || null;
 }
 
-// Contenu d'un jour donné (1..days).
-export function programDay(program, day) {
+// Contenu d'un jour donné (1..days). `ctx` (optionnel) transmet le contexte au
+// programme : { bracket, age } pour les programmes calibrés par tranche d'âge.
+export function programDay(program, day, ctx) {
   const d = Math.max(1, Math.min(program.days, day));
-  return program.build(d);
+  return program.build(d, ctx || {});
 }

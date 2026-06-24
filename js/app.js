@@ -3,7 +3,7 @@
 // ============================================================================
 
 import { APP } from './config.js';
-import { PROGRAMS, DUTY_TYPES, DUTY_LOADS, MEAL_PLANS, MEAL_VARIANTS } from './data.js';
+import { PROGRAMS, DUTY_TYPES, DUTY_LOADS, MEAL_PLANS, MEAL_VARIANTS, ageBracket } from './data.js';
 import { importRoster } from './roster-import.js';
 import { PROGRAMS_LIB, getProgram, programDay } from './programs.js';
 import {
@@ -703,11 +703,12 @@ function renderPrograms() {
   const libBody = lib.querySelector('#lib');
   PROGRAMS_LIB.forEach((prog) => {
     const c = h(`
-      <div class="lib-card">
+      <div class="lib-card" style="--accent:${prog.color || '#2e7dff'}">
         <div class="lib-card__head"><span class="lib-card__emoji">${prog.emoji}</span>
           <span class="lib-card__name">${esc(prog.name)}</span>
           <span class="lib-card__days">${prog.days} j</span></div>
         <div class="muted">${esc(prog.desc)}</div>
+        ${prog.byAge ? '<div class="lib-card__age">🎂 Adapté à ta tranche d’âge</div>' : ''}
         <button class="btn btn--primary" data-start="${prog.id}">Démarrer</button>
       </div>`);
     c.querySelector('[data-start]').onclick = () => startProgram(prog);
@@ -720,16 +721,35 @@ function renderPrograms() {
 function startProgram(prog) {
   const name = (prompt('Nom de ton programme :', prog.name) || '').trim() || prog.name;
   const inst = { id: 'p' + Date.now(), programId: prog.id, name, startISO: todayISO(), done: {} };
+
+  // Programmes calibrés par tranche d'âge : on demande l'âge pour adapter le
+  // volume et l'intensité (pré-rempli avec l'âge du profil s'il existe).
+  if (prog.byAge) {
+    const def = (getState().profile && getState().profile.age) || '';
+    const ans = prompt('Quel est ton âge ? (le programme sera adapté à ta tranche d’âge)', def);
+    const age = Math.max(14, Math.min(90, parseInt(ans, 10)));
+    if (Number.isFinite(age)) {
+      inst.age = age;
+      setState((s) => { s.profile = s.profile || {}; if (!s.profile.age) s.profile.age = age; });
+    }
+  }
+
   setState((s) => { s.myPrograms = [...(s.myPrograms || []), inst]; });
   openInstanceId = inst.id;
   openProgramDay = 1;
   render();
 }
 
+// Contexte d'un programme (âge/tranche) pour les programmes calibrés par âge.
+function programCtx(inst) {
+  const age = (inst && inst.age) || (getState().profile && getState().profile.age) || null;
+  return { age, bracket: ageBracket(age) };
+}
+
 // Un jour est "fait" si tous ses exercices sont cochés.
-function dayExercises(prog, day) { return programDay(prog, day).items || []; }
+function dayExercises(prog, day, inst) { return programDay(prog, day, programCtx(inst)).items || []; }
 function isDayDone(prog, day, inst) {
-  const items = dayExercises(prog, day);
+  const items = dayExercises(prog, day, inst);
   if (!items.length) return false;
   const arr = (inst.done || {})[day] || [];
   return items.every((_, i) => arr[i]);
@@ -768,7 +788,7 @@ function mealsForDay(prog, day) {
 function renderProgramSheet(inst) {
   const prog = getProgram(inst.programId);
   const day = Math.max(1, Math.min(prog.days, openProgramDay));
-  const content = programDay(prog, day);
+  const content = programDay(prog, day, programCtx(inst));
   const items = content.items || [];
   const checks = (inst.done || {})[day] || [];
   const meals = mealsForDay(prog, day);
