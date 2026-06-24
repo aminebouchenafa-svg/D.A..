@@ -66,6 +66,11 @@ export const EXERCISE_MEDIA = [
     match: ['jumping jack', 'jumping-jack', 'jumping jacks', 'sauts ecartes', 'ecart-saute'],
   },
   {
+    file: 'icons/exercises/butt-kicks.png',
+    name: 'Butt Kicks / Talons-fesses', muscle: 'Ischio-jambiers & cardio',
+    match: ['butt kick', 'talons-fesses', 'talon-fesse', 'talons fesses', 'talon fesse'],
+  },
+  {
     file: 'icons/exercises/lunges.png',
     name: 'Lunges', muscle: 'Quadriceps & fessiers',
     match: ['lunge', 'fente avant', 'fentes', 'fente'],

@@ -2,7 +2,7 @@
 // sw.js — Service worker FLOW. Cache offline ("app shell").
 // ============================================================================
 
-const CACHE = 'flow-v11';
+const CACHE = 'flow-v12';
 const ASSETS = [
   './',
   './index.html',
