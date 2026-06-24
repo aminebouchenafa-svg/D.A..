@@ -43,7 +43,73 @@ const BELLY30 = [
   ['2 min Mountain climbers', '60 Battements de jambes', '3 min Planche'],
 ];
 
+// 28 DAY WORKOUT PLAN ACCORDING TO THE AGE (Kambal Nutrition) — transcrit des
+// infographies. Trame hebdo répétée sur 28 jours : Lun/Mar/Mer distincts, puis
+// Jeu=Lun, Ven=Mar, Sam=Mer ; dimanche = repos.
+// Une colonne par tranche d'âge : 18-25 / 25-35 / 35-45 / 45-55 / 55+.
+const AGE28 = {
+  '18-25': {
+    mon: ['10 s Planche', '5 Pompes', '24 Fentes', '10 Sit-ups', '20 Jumping jacks'],
+    tue: ['30 Squats', '15 Jumping jacks', '30 s Planche', '20 Crunchs', '10 Pompes'],
+    wed: ['10 Talons-fesses', '10 Pompes', '20 Jumping jacks', '10 s Chaise au mur', '25 Squats'],
+  },
+  '25-35': {
+    mon: ['23 s Planche', '10 Pompes', '21 Fentes', '16 Sit-ups', '10 Jumping jacks'],
+    tue: ['25 Squats', '20 Jumping jacks', '30 s Planche', '32 Crunchs', '12 Pompes'],
+    wed: ['40 Talons-fesses', '20 Pompes', '30 Jumping jacks', '20 s Chaise au mur', '20 Squats'],
+  },
+  '35-45': {
+    mon: ['15 Pompes', '20 Fentes', '20 Sit-ups', '40 s Planche', '24 Talons-fesses'],
+    tue: ['23 Squats', '30 Talons-fesses', '40 s Planche', '10 Crunchs', '30 Pompes'],
+    wed: null, // MANQUANT sur la capture — provisoirement = Lundi
+  },
+  '45-55': {
+    mon: ['33 s Planche', '20 Pompes', '20 Fentes', '15 Sit-ups', '30 Talons-fesses'],
+    tue: ['30 Squats', '23 Talons-fesses', '30 s Planche', '35 Crunchs', '20 Pompes'],
+    wed: null, // MANQUANT sur la capture — provisoirement = Lundi
+  },
+  '55+': {
+    mon: ['45 s Planche', '10 Pompes', '20 Jumping jacks', '15 Fentes', '15 Sit-ups'],
+    tue: ['20 Squats', '15 Jumping jacks', '30 s Planche', '20 Crunchs', '10 Pompes'],
+    wed: ['35 Talons-fesses', '15 Pompes', '40 Jumping jacks', '30 s Chaise au mur', '30 Squats'],
+  },
+};
+
+// Choisit la colonne d'âge. Les <18 ans prennent la tranche 18-25.
+function age28Col(age) {
+  const a = Number(age) || 0;
+  if (!a || a < 25) return '18-25';
+  if (a < 35) return '25-35';
+  if (a < 45) return '35-45';
+  if (a < 55) return '45-55';
+  return '55+';
+}
+
 export const PROGRAMS_LIB = [
+  {
+    id: 'age28',
+    name: 'Plan 28 jours selon l’âge',
+    emoji: '🎂',
+    color: '#00b3a4',
+    days: 28,
+    dietKey: 'maintain',
+    byAge: true,
+    desc: 'Programme calibré par tranche d’âge (18-25 → 55+). Ton âge est demandé au démarrage. Lun→Sam, dimanche repos.',
+    build: (d, ctx) => {
+      const col = age28Col(ctx && ctx.age);
+      const wd = (d - 1) % 7; // 0=Lundi … 5=Samedi, 6=Dimanche
+      const labels = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+      if (wd === 6) {
+        return { subtitle: `Dimanche · Repos (tranche ${col})`, rounds: 1,
+          items: ['Repos', 'Marche / étirements 10 min', 'Hydratation +++'] };
+      }
+      const tpl = ['mon', 'tue', 'wed'][wd % 3]; // Jeu/Ven/Sam répètent Lun/Mar/Mer
+      const plan = AGE28[col];
+      const provisoire = !plan[tpl];
+      const items = plan[tpl] || plan.mon; // repli si cellule manquante
+      return { subtitle: `${labels[wd]} · Tranche ${col}${provisoire ? ' (provisoire)' : ''}`, rounds: 1, items };
+    },
+  },
   {
     id: 'belly30',
     name: '30-Day Belly Fat Burn',
