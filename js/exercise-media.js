@@ -81,6 +81,11 @@ export const EXERCISE_MEDIA = [
     match: ['squat saute', 'squats sautes', 'squat', 'squats', 'flexion jambes'],
   },
   {
+    file: 'icons/exercises/burpees.png',
+    name: 'Burpees', muscle: 'Corps entier (cardio + force)',
+    match: ['burpee', 'burpees'],
+  },
+  {
     file: 'icons/exercises/pompes.png',
     name: 'Pompes / Push Up', muscle: 'Pectoraux, triceps, épaules',
     match: ['push up', 'push-up', 'pushup', 'pompe', 'pompes'],
@@ -91,8 +96,9 @@ export const EXERCISE_MEDIA = [
 function normalize(s) {
   return (s || '')
     .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '') // accents
-    .replace(/[0-9]+([.:]?[0-9]+)?\s*(s|sec|secondes?|min|minutes?|x|reps?)?/g, ' ') // 25, 45 s, 1:30 min…
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')              // accents
+    .replace(/\b\d+([.:]\d+)?\b/g, ' ')                   // nombres / durées : 60, 45, 1:30
+    .replace(/\b(s|sec|secs|seconde|secondes|min|mins|minute|minutes|rep|reps|x)\b/g, ' ') // unités isolées
     .replace(/[^a-z\s-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
