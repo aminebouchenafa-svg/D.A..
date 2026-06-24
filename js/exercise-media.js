@@ -86,6 +86,41 @@ export const EXERCISE_MEDIA = [
     match: ['burpee', 'burpees'],
   },
   {
+    file: 'icons/exercises/wall-sit.png',
+    name: 'Wall Sit', muscle: 'Quadriceps & fessiers',
+    match: ['wall sit', "wall'sit", 'chaise au mur', 'chaise contre le mur', 'assis au mur'],
+  },
+  {
+    file: 'icons/exercises/glute-bridge.png',
+    name: 'Glute Bridge / Pont fessier', muscle: 'Fessiers & ischio-jambiers',
+    match: ['glute bridge', 'pont fessier', 'pont de fessier', 'hip thrust', 'releve de bassin'],
+  },
+  {
+    file: 'icons/exercises/calf-raise.png',
+    name: 'Calf Raise / Mollets', muscle: 'Mollets (gastrocnémiens)',
+    match: ['calf raise', 'extension mollet', 'mollet', 'mollets', 'extensions mollets'],
+  },
+  {
+    file: 'icons/exercises/diamond-pushup.png',
+    name: 'Diamond Push-Up', muscle: 'Triceps & pectoraux',
+    match: ['diamond', 'diamant', 'pompes serrees', 'pompe serree', 'pompes diamant'],
+  },
+  {
+    file: 'icons/exercises/static-pushup-hold.png',
+    name: 'Static Push-Up Hold', muscle: 'Pectoraux & gainage',
+    match: ['static push', 'pompe statique', 'pompes statiques', 'maintien pompe', 'gainage pompe'],
+  },
+  {
+    file: 'icons/exercises/bench-dips.jpeg',
+    name: 'Bench Dips', muscle: 'Triceps, pectoraux, épaules',
+    match: ['bench dip', 'dips sur chaise', 'dips sur banc', 'dips', 'dip'],
+  },
+  {
+    file: 'icons/exercises/cat-cow.png',
+    name: 'Cat-Cow', muscle: 'Mobilité dos & colonne',
+    match: ['cat cow', 'cat-cow', 'chat vache', 'chat-vache', 'chat vache'],
+  },
+  {
     file: 'icons/exercises/pompes.png',
     name: 'Pompes / Push Up', muscle: 'Pectoraux, triceps, épaules',
     match: ['push up', 'push-up', 'pushup', 'pompe', 'pompes'],
